@@ -50,6 +50,9 @@
 #include "trig.h"
 #include "cursors.h"
 
+#include <imgui/imgui.h>
+#include <imgui/misc/stl/imgui_stl.h>
+
 #if __clang__
 // workaround LLVM bug https://bugs.llvm.org//show_bug.cgi?id=21629
 #pragma clang diagnostic ignored "-Wmissing-braces"
@@ -59,6 +62,10 @@
 
 #define REALCONCAT(x, y) x ## y
 #define CONCAT(x, y) REALCONCAT(x, y)
+
+extern bool use_wzwidgets;      ///< Controls which UI framework to use
+extern ImFont* fontRegular;
+extern ImFont* fontBig;
 
 extern uint32_t selectedPlayer;      ///< The player number corresponding to this client.
 extern uint32_t realSelectedPlayer;  ///< The player number corresponding to this client (same as selectedPlayer, unless changing players in the debug menu).

@@ -30,16 +30,21 @@
 #  include <shellapi.h> /* For ShellExecute  */
 #endif
 
+#include "lib/framework/frame.h"
 #include "lib/framework/input.h"
 #include "lib/framework/wzconfig.h"
 #include "lib/framework/physfs_ext.h"
 #include "lib/ivis_opengl/bitimage.h"
+#include "lib/ivis_opengl/ivisdef.h"
 #include "lib/ivis_opengl/pieblitfunc.h"
 #include "lib/ivis_opengl/piestate.h"
+#include "lib/ivis_opengl/tex.h"
 #include "lib/sound/mixer.h"
 #include "lib/widget/button.h"
 #include "lib/widget/label.h"
 #include "lib/widget/slider.h"
+
+#include <imgui/imgui.h>
 
 #include "advvis.h"
 #include "challenge.h"
@@ -70,6 +75,7 @@
 #include "warzoneconfig.h"
 #include "wrappers.h"
 
+#include <functional>
 
 struct CAMPAIGN_FILE
 {
@@ -100,6 +106,138 @@ static void addSmallTextButton(UDWORD id, UDWORD PosX, UDWORD PosY, const char *
 
 // ////////////////////////////////////////////////////////////////////////////
 // Helper functions
+
+namespace ImGui {
+	namespace Wz {
+		const ImVec2 useFullWidth(-1, 0);
+
+		ImGuiWindowFlags titleWindowFlags = ImGuiWindowFlags_NoTitleBar |
+				ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+
+		bool ButtonFW(const char* label)
+		{
+			return ImGui::Button(label, useFullWidth);
+		}
+
+		void Image(const ImageDef *image, const ImVec2& size)
+		{
+			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+				     size,
+				     ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
+					    (image->YOffset + image->Tv) * image->invTextureSize),
+				     ImVec2((image->XOffset + image->Width + image->Tu) * image->invTextureSize,
+					    (image->YOffset + image->Height + image->Tv) * image->invTextureSize));
+		}
+
+		void Image(const char* tex_name, const ImVec2& size)
+		{
+			ImageDef *image = iV_GetImage(QString(tex_name));
+			Image(image, size);
+		}
+
+		void ImageFE(const int fe_img_id, const ImVec2& size)
+		{
+			ImageDef *image = &FrontImages->imageDefs[fe_img_id];
+			Image(image, size);
+		}
+
+		bool ImageButton(const ImageDef *image, const ImVec2& size)
+		{
+			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+					   size,
+					   ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
+						  (image->YOffset + image->Tv) * image->invTextureSize),
+					   ImVec2((image->XOffset + image->Tu + image->Width) * image->invTextureSize,
+						  (image->YOffset + image->Tv + image->Height) * image->invTextureSize));
+		}
+
+		bool ImageButton(const char* tex_name, const ImVec2& size)
+		{
+			ImageDef *image = iV_GetImage(QString(tex_name));
+			return ImageButton(image, size);
+		}
+
+		bool ImageButtonFE(const int fe_img_id, const ImVec2& size)
+		{
+			ImageDef *image = &FrontImages->imageDefs[fe_img_id];
+			return ImageButton(image, size);
+		}
+
+		void LogoForm()
+		{
+			int frmW = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEW : FRONTEND_TOPFORMW;
+			int frmH = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEH : FRONTEND_TOPFORMH;
+
+			ImGuiIO& io = ImGui::GetIO();
+
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - (HIDDEN_FRONTEND_WIDTH * 0.5f) +
+						       ((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEX : FRONTEND_TOPFORMX),
+						       io.DisplaySize.y * 0.5f - (HIDDEN_FRONTEND_HEIGHT * 0.5f) +
+						       ((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEY : FRONTEND_TOPFORMY)));
+			ImGui::SetNextWindowSize(ImVec2(frmW, frmH));
+
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+
+			ImGui::Begin("TitleMenuTop", nullptr, ImGui::Wz::titleWindowFlags | ImGuiWindowFlags_NoScrollbar);
+			{
+				int imgW = iV_GetImageWidth(FrontImages, IMAGE_FE_LOGO);
+				int imgH = iV_GetImageHeight(FrontImages, IMAGE_FE_LOGO);
+
+				int dstW = frmW;
+				int dstH = frmH;
+				if (imgW * dstH < imgH * dstW) // Want to set aspect ratio dstW/dstH = imgW/imgH.
+					dstW = imgW * dstH / imgH; // Too wide.
+				else if (imgW * dstH > imgH * dstW)
+					dstH = imgH * dstW / imgW; // Too high.
+
+				ImGui::Dummy(ImVec2((frmW - dstW) * 0.5f, 0));
+				ImGui::SameLine();
+				ImGui::Wz::ImageFE(IMAGE_FE_LOGO, ImVec2(dstW, dstH));
+			}
+			ImGui::PopStyleVar(2);
+
+			ImGui::End();
+		}
+
+		void TitleForm(const std::function< void() >& top_fn, const std::function< void() >& main_fn, const std::function< void() >& bottom_fn)
+		{
+			ImGuiIO& io = ImGui::GetIO();
+
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - (HIDDEN_FRONTEND_WIDTH * 0.5f) + FRONTEND_BOTFORMX,
+						       io.DisplaySize.y * 0.5f - (HIDDEN_FRONTEND_HEIGHT * 0.5f) + FRONTEND_BOTFORMY));
+			ImGui::SetNextWindowSize(ImVec2(FRONTEND_BOTFORMW, FRONTEND_BOTFORMH));
+			ImGui::Begin("TitleMenuBottom", nullptr, ImGui::Wz::titleWindowFlags);
+
+			ImVec2 windowSize = ImGui::GetWindowSize();
+
+			// do top stuff
+			top_fn();
+
+			// Use 3 columns with no borders and make middle one wide enough
+			ImGui::Columns(3, "TitleMenuColumns", false);
+			ImGui::SetColumnWidth(0, windowSize.x * 0.2f);
+			ImGui::SetColumnWidth(1, windowSize.x * 0.6f);
+			ImGui::SetColumnWidth(2, windowSize.x * 0.2f);
+			ImGui::NextColumn();
+
+			ImGui::PushFont(fontBig);
+
+			// do main stuff
+			main_fn();
+
+			ImGui::PopFont();
+
+			ImGui::Columns();
+
+			// do bottom stuff
+			bottom_fn();
+
+			ImGui::End();
+
+		}
+	}
+}
 
 // Returns true if escape key pressed.
 //
@@ -137,6 +275,7 @@ static bool startTitleMenu()
 	intRemoveReticule();
 
 	addBackdrop();
+
 	addTopForm();
 	addBottomForm();
 
@@ -219,6 +358,7 @@ static void runchatlink()
 
 bool runTitleMenu()
 {
+ if (use_wzwidgets) {
 	WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
@@ -260,6 +400,89 @@ bool runTitleMenu()
 	}
 
 	widgDisplayScreen(psWScreen); // show the widgets currently running
+ }
+ else
+ {
+	bool wantsToQuit = false;
+	static bool hasIntroData = PHYSFS_exists("sequences/devastation.ogg");
+
+	// Top form
+	ImGui::Wz::LogoForm();
+
+	// Bottom form
+
+	static auto top_fn = [] ()
+	{
+		if (ImGui::Wz::ImageButtonFE(IMAGE_GAMEVERSION,
+					     ImVec2(MULTIOP_BUTW * (MULTIOP_RETH / float(MULTIOP_BUTH)), MULTIOP_RETH)))
+			runUpgrdHyperlink();
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text(_("Check for a newer version"));
+			ImGui::EndTooltip();
+		}
+	};
+
+	static auto middle_fn = [&wantsToQuit] ()
+	{
+		if (ImGui::Wz::ButtonFW(_("Single Player")))
+			changeTitleMode(SINGLE);
+		if (ImGui::Wz::ButtonFW(_("Multi Player")))
+			changeTitleMode(MULTI);
+
+		if (ImGui::Wz::ButtonFW(_("Tutorial")))
+			changeTitleMode(TUTORIAL);
+		if (ImGui::Wz::ButtonFW(_("Options")))
+			changeTitleMode(OPTIONS);
+
+		if (ImGui::Wz::ButtonFW(_("View Intro")) && hasIntroData)
+			changeTitleMode(SHOWINTRO);
+		if (ImGui::IsItemHovered() && !hasIntroData)
+		{
+			ImGui::PopFont();
+			ImGui::BeginTooltip();
+			ImGui::Text(_("Videos are missing, download them from http://wz2100.net"));
+			ImGui::EndTooltip();
+			ImGui::PushFont(fontBig);
+		}
+
+		if (ImGui::Wz::ButtonFW(_("Quit Game")))
+			wantsToQuit = true;
+	};
+
+	static auto bottom_fn = [] ()
+	{
+		ImGui::Dummy(ImVec2(1, ImGui::GetWindowHeight() * 0.025f));
+
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.88f, 0.3f, 1.0f));
+		if (ImGui::SmallButton(_("Official site: http://wz2100.net/")))
+			runHyperlink();
+		ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text(_("Come visit the forums and all Warzone 2100 news! Click this link."));
+			ImGui::EndTooltip();
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.88f, 0.3f, 1.0f));
+		if (ImGui::SmallButton(_("Donate: http://donations.wz2100.net/")))
+			rundonatelink();
+		ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text(_("Help support the project with our server costs, Click this link."));
+			ImGui::EndTooltip();
+		}
+	};
+
+	ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+
+	if (wantsToQuit)
+		changeTitleMode(CREDITS);
+  }
 
 	return true;
 }
@@ -285,6 +508,8 @@ static bool startTutorialMenu()
 
 bool runTutorialMenu()
 {
+ if (use_wzwidgets)
+ {
 	WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
@@ -320,7 +545,50 @@ bool runTutorialMenu()
 	}
 
 	widgDisplayScreen(psWScreen);						// show the widgets currently running
+ }
+ else
+ {
+	// Top form
+	ImGui::Wz::LogoForm();
 
+	// Bottom form
+	static auto top_fn = [] ()
+	{
+		if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
+			changeTitleMode(TITLE);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text("%s", P_("menu", "Return"));
+			ImGui::EndTooltip();
+		}
+	};
+
+	static auto middle_fn = [] ()
+	{
+		if (ImGui::Wz::ButtonFW(_("Tutorial")))
+		{
+			NetPlay.players[0].allocated = true;
+			game.skDiff[0] = UBYTE_MAX;
+			sstrcpy(aLevelName, TUTORIAL_LEVEL);
+			changeTitleMode(STARTGAME);
+		}
+		if (ImGui::Wz::ButtonFW(_("Fast Play")))
+		{
+			NETinit(true);
+			NetPlay.players[0].allocated = true;
+			game.skDiff[0] = UBYTE_MAX;
+			sstrcpy(aLevelName, "FASTPLAY");
+			changeTitleMode(STARTGAME);
+		}
+	};
+
+	static auto bottom_fn = [] ()
+	{
+	};
+
+	ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+  }
 	return true;
 }
 
@@ -510,6 +778,8 @@ bool runSinglePlayerMenu()
 	}
 	else
 	{
+	  if (use_wzwidgets)
+	  {
 		WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 		unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
@@ -554,10 +824,82 @@ bool runSinglePlayerMenu()
 		{
 			changeTitleMode(TITLE);
 		}
+	  }
+	  else
+	  {
+	       bool wantsToQuit = false;
+	       // Top form
+	       ImGui::Wz::LogoForm();
+
+	       // Bottom form
+	       static auto top_fn = [] ()
+	       {
+		       if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
+			       changeTitleMode(TITLE);
+		       if (ImGui::IsItemHovered())
+		       {
+			       ImGui::BeginTooltip();
+			       ImGui::Text("%s", P_("menu", "Return"));
+			       ImGui::EndTooltip();
+		       }
+	       };
+
+	       static auto middle_fn = [] ()
+	       {
+		       if (ImGui::Wz::ButtonFW(_("New Campaign")))
+			       changeTitleMode(CAMPAIGNS);
+		       if (ImGui::Wz::ButtonFW(_("Start Skirmish Game")))
+		       {
+			       SPinit();
+			       ingame.bHostSetup = true;
+			       lastTitleMode = SINGLE;
+			       changeTitleMode(MULTIOPTION);
+		       }
+
+		       if (ImGui::Wz::ButtonFW(_("Challenges")))
+		       {
+			       SPinit();
+			       addChallenges();
+		       }
+
+		       if (ImGui::Wz::ButtonFW(_("Load Campaign Game")))
+		       {
+			       SPinit();
+			       addLoadSave(LOAD_FRONTEND_MISSION, _("Load Campaign Saved Game"));	// change mode when loadsave returns
+		       }
+		       if (ImGui::Wz::ButtonFW(_("Load Skirmish Game")))
+		       {
+			       SPinit();
+			       bMultiPlayer = true;
+			       addLoadSave(LOAD_FRONTEND_SKIRMISH, _("Load Skirmish Saved Game"));	// change mode when loadsave returns
+		       }
+	       };
+
+	       static auto bottom_fn = [] ()
+	       {
+		       static bool hasIntroData = PHYSFS_exists("sequences/devastation.ogg");
+
+		       // show this only when the video sequences are not installed
+		       if (!hasIntroData)
+		       {
+			       ImGui::Dummy(ImVec2(1, ImGui::GetWindowHeight() * 0.2f));
+
+			       ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.88f, 0.3f, 1.0f));
+			       ImGui::SmallButton(_("Campaign videos are missing! Get them from http://wz2100.net"));
+			       ImGui::PopStyleColor();
+		       }
+	       };
+
+	       ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+
+	       if (wantsToQuit)
+		       changeTitleMode(CREDITS);
+	 }
 	}
 
 	if (!bLoadSaveUp && !challengesUp)						// if save/load screen is up
 	{
+	  if (use_wzwidgets)
 		widgDisplayScreen(psWScreen);						// show the widgets currently running
 	}
 	if (bLoadSaveUp)								// if save/load screen is up
