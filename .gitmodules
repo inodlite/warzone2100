@@ -10,3 +10,6 @@
 [submodule "3rdparty/theora"]
 	path = 3rdparty/theora
 	url = https://git.xiph.org/theora.git
+[submodule "3rdparty/imgui"]
+	path = 3rdparty/imgui
+	url = https://github.com/ocornut/imgui

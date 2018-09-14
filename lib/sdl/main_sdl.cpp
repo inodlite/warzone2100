@@ -38,6 +38,7 @@
 #endif
 #include "lib/framework/input.h"
 #include "lib/framework/utf.h"
+#include "lib/framework/file.h"
 #include "lib/framework/opengl.h"
 #include "lib/ivis_opengl/pieclip.h"
 #include "lib/gamelib/gtime.h"
@@ -50,6 +51,10 @@
 #include <algorithm>
 #include <map>
 
+#include <imgui/imgui.h>
+#include <imgui/examples/imgui_impl_sdl.h>
+#include <imgui/examples/imgui_impl_opengl3.h>
+
 // This is for the cross-compiler, for static QT 5 builds to avoid the 'plugins' crap on windows
 #if defined(QT_STATICPLUGIN)
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
@@ -58,6 +63,8 @@ Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
 void mainLoop();
 // used in crash reports & version info
 const char *BACKEND = "SDL";
+
+bool wzCanRenderImGui = false;
 
 std::map<KEY_CODE, SDL_Keycode> KEY_CODE_to_SDLKey;
 std::map<SDL_Keycode, KEY_CODE > SDLKey_to_KEY_CODE;
@@ -231,6 +238,113 @@ QString wzGetSelection()
 		strlcpy(text, scrap, strlen(scrap));
 	}
 	return retval;
+}
+
+struct ImVec3 { float x, y, z; ImVec3(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f) { x = _x; y = _y; z = _z; } };
+
+void imgui_easy_theming(ImVec3 color_for_text, ImVec3 color_for_head, ImVec3 color_for_area,
+			ImVec3 color_for_body, ImVec3 color_for_pops)
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	style.Colors[ImGuiCol_Text] = ImVec4( color_for_text.x, color_for_text.y, color_for_text.z, 1.00f );
+	style.Colors[ImGuiCol_TextDisabled] = ImVec4( color_for_text.x, color_for_text.y, color_for_text.z, 0.58f );
+	style.Colors[ImGuiCol_WindowBg] = ImVec4( color_for_body.x, color_for_body.y, color_for_body.z, 0.95f );
+	style.Colors[ImGuiCol_Border] = ImVec4( color_for_body.x, color_for_body.y, color_for_body.z, 0.00f );
+	style.Colors[ImGuiCol_BorderShadow] = ImVec4( color_for_body.x, color_for_body.y, color_for_body.z, 0.00f );
+	style.Colors[ImGuiCol_FrameBg] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 1.00f );
+	style.Colors[ImGuiCol_FrameBgHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.78f );
+	style.Colors[ImGuiCol_FrameBgActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_TitleBg] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 1.00f );
+	style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.75f );
+	style.Colors[ImGuiCol_TitleBgActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_MenuBarBg] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.47f );
+	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 1.00f );
+	style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.21f );
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.78f );
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_CheckMark] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.80f );
+	style.Colors[ImGuiCol_SliderGrab] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.50f );
+	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_Button] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.50f );
+	style.Colors[ImGuiCol_ButtonHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.86f );
+	style.Colors[ImGuiCol_ButtonActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_Header] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.76f );
+	style.Colors[ImGuiCol_HeaderHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.86f );
+	style.Colors[ImGuiCol_HeaderActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_ResizeGrip] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.15f );
+	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.78f );
+	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_PlotLines] = ImVec4( color_for_text.x, color_for_text.y, color_for_text.z, 0.63f );
+	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_PlotHistogram] = ImVec4( color_for_text.x, color_for_text.y, color_for_text.z, 0.63f );
+	style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.43f );
+	style.Colors[ImGuiCol_PopupBg] = ImVec4( color_for_pops.x, color_for_pops.y, color_for_pops.z, 0.92f );
+	style.Colors[ImGuiCol_ModalWindowDarkening] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.73f );
+}
+
+void wzSetStyleWZ()
+{
+	ImGui::StyleColorsClassic();
+
+	static ImVec3 color_for_text = ImVec3(236.f / 255.f, 240.f / 255.f, 241.f / 255.f);
+	static ImVec3 color_for_head = ImVec3(0.25f, 0.31f, 0.85f);
+	static ImVec3 color_for_area = ImVec3(0.07f, 0.07f, 0.51f);
+	static ImVec3 color_for_body = ImVec3(0.06f, 0.03f, 0.33f);
+	static ImVec3 color_for_pops = ImVec3(0.06f, 0.06f, 0.50f);
+	static ImVec4 color_for_pbar = ImVec4(1.00f, 0.77f, 0.00f, 1.f);
+
+	imgui_easy_theming(color_for_text, color_for_head, color_for_area,
+			   color_for_body, color_for_pops);
+
+	ImGuiStyle* style = &ImGui::GetStyle();
+
+	// Tune up remainder
+	style->Colors[ImGuiCol_WindowBg].w = 0.5f;
+	style->Colors[ImGuiCol_PlotLines] = color_for_pbar;
+	style->Colors[ImGuiCol_PlotHistogram] = color_for_pbar;
+	style->Colors[ImGuiCol_CheckMark] = color_for_pbar;
+
+	style->WindowBorderSize = 0;
+	style->WindowRounding = 0;
+	style->ScrollbarRounding = 1;
+	style->FrameBorderSize = 1;
+}
+
+void wzSetStyleEasyStyle()
+{
+	ImGui::StyleColorsClassic();
+
+	static ImVec3 color_for_text = ImVec3(236.f / 255.f, 240.f / 255.f, 241.f / 255.f);
+	static ImVec3 color_for_head = ImVec3(41.f / 255.f, 128.f / 255.f, 185.f / 255.f);
+	static ImVec3 color_for_area = ImVec3(57.f / 255.f, 79.f / 255.f, 105.f / 255.f);
+	static ImVec3 color_for_body = ImVec3(44.f / 255.f, 62.f / 255.f, 80.f / 255.f);
+	static ImVec3 color_for_pops = ImVec3(33.f / 255.f, 46.f / 255.f, 60.f / 255.f);
+
+	imgui_easy_theming(color_for_text, color_for_head, color_for_area,
+			   color_for_body, color_for_pops);
+}
+
+bool wzShowStyleSelector(const char* label)
+{
+	static int style_idx = 0;
+	if (ImGui::Combo(label, &style_idx, "Warzone 2100\0Classic\0Dark\0Light\0Easy Style\0"))
+	{
+		// Reset style first
+		ImGui::GetStyle() = ImGuiStyle();
+
+		switch (style_idx)
+		{
+			case 0: wzSetStyleWZ(); break;
+			case 1: ImGui::StyleColorsClassic(); break;
+			case 2: ImGui::StyleColorsDark(); break;
+			case 3: ImGui::StyleColorsLight(); break;
+			case 4: wzSetStyleEasyStyle(); break;
+		}
+		return true;
+	}
+	return false;
 }
 
 // Here we handle VSYNC enable/disabling
@@ -439,8 +553,44 @@ void wzFatalDialog(const char *msg)
 	                         NULL);
 }
 
+void wzDoDeveloperUI()
+{
+	static bool show_demo_window = false;
+
+	ImGui::Begin("Developer UI", 0, ImGuiWindowFlags_AlwaysAutoResize);
+	{
+		static int uif_idx = use_wzwidgets ? 1 : 0;
+		if (ImGui::Combo("UI Framework", &uif_idx, "ImGui\0Warzone Widgets\0"))
+		{
+			use_wzwidgets = uif_idx == 1;
+		}
+
+		wzShowStyleSelector("StyleSelector");
+
+		ImGui::Checkbox("ImGui Demo Window", &show_demo_window);
+
+		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+			    1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	}
+	ImGui::End();
+
+	// Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
+	if (show_demo_window)
+	{
+		ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
+		ImGui::ShowDemoWindow(&show_demo_window);
+	}
+}
+
 void wzScreenFlip()
 {
+	if (wzCanRenderImGui)
+	{
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		wzCanRenderImGui = false;
+	}
+
 	SDL_GL_SwapWindow(WZwindow);
 }
 
@@ -1449,6 +1599,59 @@ bool wzMainScreenSetup(int antialiasing, bool fullscreen, bool vsync)
 	glCullFace(GL_FRONT);
 	glEnable(GL_CULL_FACE);
 
+	// Setup Dear ImGui binding
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+	ImGui_ImplSDL2_InitForOpenGL(WZwindow, WZglcontext);
+	ImGui_ImplOpenGL3_Init(nullptr);
+
+	// Setup wz-like style
+	wzSetStyleWZ();
+
+	// Load Fonts
+	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+	// - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+	// - Read 'misc/fonts/README.txt' for more instructions and details.
+	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+	//io.Fonts->AddFontDefault();
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+	{
+		char *realFileData = nullptr;
+		uint32_t realFileSize = 0;
+
+		if (loadFile("fonts/DejaVuSans.ttf", &realFileData, &realFileSize))
+		{
+			ImFontConfig font_cfg = ImFontConfig();
+			font_cfg.FontDataOwnedByAtlas = false;
+			fontRegular = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 16.0f, &font_cfg);
+			free(realFileData);
+		}
+		else
+		{
+			debug(LOG_FATAL, "Failed to load regular font");
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+		}
+
+		if (loadFile("fonts/DejaVuSans-Bold.ttf", &realFileData, &realFileSize))
+		{
+			ImFontConfig font_cfg = ImFontConfig();
+			font_cfg.FontDataOwnedByAtlas = false;
+			fontBig = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 22.0f, &font_cfg);
+			free(realFileData);
+		}
+		else
+		{
+			debug(LOG_FATAL, "Failed to load big font");
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	return true;
 }
 
@@ -1513,33 +1716,40 @@ static void handleActiveEvent(SDL_Event *event)
 void wzMainEventLoop(void)
 {
 	SDL_Event event;
+	ImGuiIO& io = ImGui::GetIO();
 
 	while (true)
 	{
 		/* Deal with any windows messages */
 		while (SDL_PollEvent(&event))
 		{
+			ImGui_ImplSDL2_ProcessEvent(&event);
 			switch (event.type)
 			{
 			case SDL_KEYUP:
 			case SDL_KEYDOWN:
-				inputHandleKeyEvent(&event.key);
+				if (!io.WantCaptureKeyboard)
+					inputHandleKeyEvent(&event.key);
 				break;
 			case SDL_MOUSEBUTTONUP:
 			case SDL_MOUSEBUTTONDOWN:
-				inputHandleMouseButtonEvent(&event.button);
+				if (!io.WantCaptureMouse)
+					inputHandleMouseButtonEvent(&event.button);
 				break;
 			case SDL_MOUSEMOTION:
-				inputHandleMouseMotionEvent(&event.motion);
+				if (!io.WantCaptureMouse)
+					inputHandleMouseMotionEvent(&event.motion);
 				break;
 			case SDL_MOUSEWHEEL:
-				inputHandleMouseWheelEvent(&event.wheel);
+				if (!io.WantCaptureMouse)
+					inputHandleMouseWheelEvent(&event.wheel);
 				break;
 			case SDL_WINDOWEVENT:
 				handleActiveEvent(&event);
 				break;
 			case SDL_TEXTINPUT:	// SDL now handles text input differently
-				inputhandleText(&event.text);
+				if (!io.WantCaptureKeyboard)
+					inputhandleText(&event.text);
 				break;
 			case SDL_QUIT:
 				return;
@@ -1547,6 +1757,14 @@ void wzMainEventLoop(void)
 				break;
 			}
 		}
+
+		// Start new ImGui frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame(WZwindow);
+		ImGui::NewFrame();
+		wzCanRenderImGui = true;
+		wzDoDeveloperUI();
+
 		appPtr->processEvents();		// Qt needs to do its stuff
 		mainLoop();				// WZ does its thing
 		inputNewFrame();			// reset input states
@@ -1555,6 +1773,10 @@ void wzMainEventLoop(void)
 
 void wzShutdown()
 {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+
 	// order is important!
 	sdlFreeCursors();
 	SDL_DestroyWindow(WZwindow);

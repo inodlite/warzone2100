@@ -97,6 +97,12 @@ char				sRequestResult[PATH_MAX];   // filename returned;
 bool				bRequestLoad = false;
 LOADSAVE_MODE		bLoadSaveMode;
 
+std::vector<std::string> sSaveGameNames;
+std::vector<std::string> sSaveGameTimes;
+int bSelectedSaveGameIdx;
+bool bSaveLoadNeedsToPopup;
+std::string sEnteredSaveName;
+
 static const char *sExt = ".gam";
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -303,6 +309,9 @@ bool addLoadSave(LOADSAVE_MODE savemode, const char *title)
 		(*i)[strlen(*i) - 4] = '\0'; // remove .gam extension
 		sstrcpy(sSlotCaps[slotCount], *i);  //store it!
 
+		sSaveGameNames.push_back(sSlotCaps[slotCount]);
+		sSaveGameTimes.push_back(sSlotTips[slotCount]);
+
 		/* Add button */
 		button->pTip = sSlotTips[slotCount];
 		button->pText = sSlotCaps[slotCount];
@@ -314,6 +323,10 @@ bool addLoadSave(LOADSAVE_MODE savemode, const char *title)
 	}
 	PHYSFS_freeList(files);
 
+	bSelectedSaveGameIdx = -1;
+	bSaveLoadNeedsToPopup = true;
+	sEnteredSaveName.clear();
+
 	bLoadSaveUp = true;
 	return true;
 }
@@ -322,6 +335,9 @@ bool addLoadSave(LOADSAVE_MODE savemode, const char *title)
 bool closeLoadSave(void)
 {
 	bLoadSaveUp = false;
+
+	sSaveGameNames.clear();
+	sSaveGameTimes.clear();
 
 	if ((bLoadSaveMode == LOAD_INGAME_MISSION) || (bLoadSaveMode == SAVE_INGAME_MISSION)
 	    || (bLoadSaveMode == LOAD_INGAME_SKIRMISH) || (bLoadSaveMode == SAVE_INGAME_SKIRMISH))
@@ -343,8 +359,11 @@ bool closeLoadSave(void)
 	}
 	delete psRequestScreen;
 	psRequestScreen = NULL;
+ if (use_wzwidgets)
+ {
 	// need to "eat" up the return key so it don't pass back to game.
 	inputLoseFocus();
+ }
 	return true;
 }
 
@@ -403,19 +422,10 @@ bool runLoadSave(bool bResetMissionWidgets)
 {
 	static char     sDelete[PATH_MAX];
 	UDWORD		i, campaign;
-	W_CONTEXT		context;
 	char NewSaveGamePath[PATH_MAX] = {'\0'};
-
-	WidgetTriggers const &triggers = widgRunScreen(psRequestScreen);
-	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
 	sstrcpy(sRequestResult, "");					// set returned filename to null;
 
-	// cancel this operation...
-	if (id == LOADSAVE_CANCEL || CancelPressed())
-	{
-		goto cleanup;
-	}
 	if (bMultiPlayer)
 	{
 		ssprintf(NewSaveGamePath, "%s%s/", SaveGamePath, "skirmish");
@@ -424,6 +434,19 @@ bool runLoadSave(bool bResetMissionWidgets)
 	{
 		ssprintf(NewSaveGamePath, "%s%s/", SaveGamePath, "campaign");
 	}
+
+ if (use_wzwidgets)
+ {
+	W_CONTEXT		context;
+	WidgetTriggers const &triggers = widgRunScreen(psRequestScreen);
+	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
+
+	// cancel this operation...
+	if (id == LOADSAVE_CANCEL || CancelPressed())
+	{
+		goto cleanup;
+	}
+
 	// clicked a load entry
 	if (id >= LOADENTRY_START  &&  id <= LOADENTRY_END)
 	{
@@ -529,6 +552,97 @@ bool runLoadSave(bool bResetMissionWidgets)
 
 		goto cleanup;
 	}
+ }
+ else
+ {
+	bool doSuccess = false;
+	bool doCleanup = false;
+
+	ImGui::PushID("LoadSave");
+
+	if (bSaveLoadNeedsToPopup)
+	{
+		ImGui::OpenPopup(getLoadSaveTitle());
+		bSaveLoadNeedsToPopup = false;
+	}
+
+	if (ImGui::BeginPopupModal(getLoadSaveTitle(), NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		// mode is True for loading
+		if (!mode)
+		{
+			ImGui::Separator();
+			ImGui::Text(_("Enter a name for a new save or select an existing one:"));
+			ImGui::InputText("", &sEnteredSaveName);
+			ImGui::Separator();
+		}
+
+		for (size_t curIdx = 0; curIdx < sSaveGameNames.size(); ++curIdx)
+		{
+			if (ImGui::Selectable(sSaveGameNames[curIdx].c_str(), int(curIdx) == bSelectedSaveGameIdx,
+					      ImGuiSelectableFlags_DontClosePopups))
+			{
+				bSelectedSaveGameIdx = curIdx;
+				sEnteredSaveName = sSaveGameNames[curIdx];
+				// Note current name for deletion
+				if (!mode)
+					ssprintf(sDelete, "%s%s%s", NewSaveGamePath, sSaveGameNames[curIdx].c_str(), sExt);
+			}
+			ImGui::SameLine();
+			ImGui::Text("%s", sSaveGameTimes[curIdx].c_str());
+		}
+
+		if (ImGui::Button(_("OK"), ImVec2(120,0)))
+		{
+			if (mode)
+			{
+				if (bSelectedSaveGameIdx >= 0)
+				{
+					ssprintf(sRequestResult, "%s%s%s", NewSaveGamePath, sSaveGameNames[bSelectedSaveGameIdx].c_str(), sExt);
+					doSuccess = true;
+				}
+				else
+					doCleanup = true;
+			}
+			else
+			{
+				if (!sEnteredSaveName.empty())
+				{
+					char sTemp[MAX_STR_LENGTH];
+					sstrcpy(sTemp, sEnteredSaveName.c_str());
+					removeWildcards(sTemp);
+					// TODO: we need to check if new name collides with other slots
+					// and bail out, if so
+
+					snprintf(sRequestResult, sizeof(sRequestResult), "%s%s%s", NewSaveGamePath, sTemp, sExt);
+					if (strlen(sDelete) != 0)
+					{
+						deleteSaveGame(sDelete);	//only delete game if a new game fills the slot
+					}
+				}
+
+				doCleanup = true;
+			}
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button(_("Close"), ImVec2(120,0)))
+		{
+			doCleanup = true;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopID();
+
+	if (doSuccess)
+		goto success;
+	if (doCleanup)
+		goto cleanup;
+ }
 
 	return false;
 
@@ -556,6 +670,7 @@ success:
 // should be done when drawing the other widgets.
 bool displayLoadSave(void)
 {
+  if (use_wzwidgets)
 	widgDisplayScreen(psRequestScreen);	// display widgets.
 	return true;
 }
@@ -669,4 +784,28 @@ void drawBlueBox(UDWORD x, UDWORD y, UDWORD w, UDWORD h)
 {
 	pie_BoxFill(x - 1, y - 1, x + w + 1, y + h + 1, WZCOL_MENU_BORDER);
 	pie_BoxFill(x, y , x + w, y + h, WZCOL_MENU_BACKGROUND);
+}
+
+const char *getLoadSaveTitle()
+{
+	switch (bLoadSaveMode)
+	{
+	case LOAD_INGAME_MISSION:
+	case LOAD_FRONTEND_MISSION:
+		return _("Load Campaign Saved Game");
+	case LOAD_INGAME_SKIRMISH:
+	case LOAD_FRONTEND_SKIRMISH:
+		return _("Load Skirmish Saved Game");
+	case SAVE_INGAME_MISSION:
+		return _("Save Campaign Game");
+	case SAVE_INGAME_SKIRMISH:
+		return _("Save Skirmish Game");
+	case LOAD_MISSIONEND:
+		return _("Load Saved Game");
+	case SAVE_MISSIONEND:
+		return _("Save Game");
+	default:
+		ASSERT("Invalid load/save mode!", "Invalid load/save mode!");
+		return nullptr;
+	}
 }

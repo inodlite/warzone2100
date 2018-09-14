@@ -33,6 +33,10 @@
 #include "frameresource.h"
 #include "input.h"
 
+bool use_wzwidgets = false;
+ImFont* fontRegular = nullptr;
+ImFont* fontBig = nullptr;
+
 /************************************************************************************
  *
  *	Player globals

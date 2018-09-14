@@ -315,6 +315,9 @@ void loadMapPreview(bool hideInterface);
 #define MULTIOP_OKW			37
 #define MULTIOP_OKH			24
 
+#define MULTIOP_RETW			30
+#define MULTIOP_RETH			29
+
 #define MULTIOP_BUTW			35
 #define MULTIOP_BUTH			24
 

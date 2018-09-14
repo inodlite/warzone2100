@@ -65,6 +65,7 @@ extern bool		runLoadSave(bool bResetMissionWidgets);
 extern bool		displayLoadSave(void);
 
 extern void		removeWildcards(char *pStr);
+extern const char*	getLoadSaveTitle(void);
 
 // return whether the save screen was displayed in the mission results screen
 bool saveInMissionRes(void);
