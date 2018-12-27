@@ -23,7 +23,7 @@ libsdl_a_SOURCES = \
 	../../3rdparty/imgui/imgui_demo.cpp \
 	../../3rdparty/imgui/examples/imgui_impl_opengl3.cpp \
 	../../3rdparty/imgui/examples/imgui_impl_sdl.cpp \
-	../../3rdparty/imgui/misc/stl/imgui_stl.cpp \
+	../../3rdparty/imgui/misc/cpp/imgui_stdlib.cpp \
 	main_sdl.cpp
 
 EXTRA_DIST= \
