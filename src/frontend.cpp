@@ -200,7 +200,8 @@ namespace ImGui {
 			ImGui::End();
 		}
 
-		void TitleForm(const std::function< void() >& top_fn, const std::function< void() >& main_fn, const std::function< void() >& bottom_fn)
+		void TitleForm(const char* form_title, const std::function< void() >& top_fn,
+			       const std::function< void() >& main_fn, const std::function< void() >& bottom_fn)
 		{
 			ImGuiIO& io = ImGui::GetIO();
 
@@ -211,17 +212,20 @@ namespace ImGui {
 
 			ImVec2 windowSize = ImGui::GetWindowSize();
 
-			// do top stuff
-			top_fn();
-
 			// Use 3 columns with no borders and make middle one wide enough
 			ImGui::Columns(3, "TitleMenuColumns", false);
 			ImGui::SetColumnWidth(0, windowSize.x * 0.2f);
 			ImGui::SetColumnWidth(1, windowSize.x * 0.6f);
 			ImGui::SetColumnWidth(2, windowSize.x * 0.2f);
+
+			// do top stuff
+			top_fn();
+
 			ImGui::NextColumn();
 
 			ImGui::PushFont(fontBig);
+
+			ImGui::Text("%s", form_title);
 
 			// do main stuff
 			main_fn();
@@ -478,7 +482,7 @@ bool runTitleMenu()
 		}
 	};
 
-	ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+	ImGui::Wz::TitleForm(_("MAIN MENU"), top_fn, middle_fn, bottom_fn);
 
 	if (wantsToQuit)
 		changeTitleMode(CREDITS);
@@ -587,7 +591,7 @@ bool runTutorialMenu()
 	{
 	};
 
-	ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+	ImGui::Wz::TitleForm(_("TUTORIALS"), top_fn, middle_fn, bottom_fn);
   }
 	return true;
 }
@@ -890,7 +894,7 @@ bool runSinglePlayerMenu()
 		       }
 	       };
 
-	       ImGui::Wz::TitleForm(top_fn, middle_fn, bottom_fn);
+	       ImGui::Wz::TitleForm(_("SINGLE PLAYER"), top_fn, middle_fn, bottom_fn);
 
 	       if (wantsToQuit)
 		       changeTitleMode(CREDITS);
