@@ -51,7 +51,7 @@
 #include "cursors.h"
 
 #include <imgui/imgui.h>
-#include <imgui/misc/stl/imgui_stl.h>
+#include <imgui/misc/cpp/imgui_stdlib.h>
 
 #if __clang__
 // workaround LLVM bug https://bugs.llvm.org//show_bug.cgi?id=21629
