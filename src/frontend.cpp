@@ -219,7 +219,8 @@ namespace ImGui {
 			ImGui::SetColumnWidth(2, windowSize.x * 0.2f);
 
 			// do top stuff
-			top_fn();
+			if (top_fn)
+				top_fn();
 
 			ImGui::NextColumn();
 
@@ -235,11 +236,24 @@ namespace ImGui {
 			ImGui::Columns();
 
 			// do bottom stuff
-			bottom_fn();
+			if (bottom_fn)
+				bottom_fn();
 
 			ImGui::End();
 
 		}
+
+		template<tMode MODE> void TitleFormSimpleReturnFn()
+		{
+		       if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
+			       changeTitleMode(MODE);
+		       if (ImGui::IsItemHovered())
+		       {
+			       ImGui::BeginTooltip();
+			       ImGui::Text("%s", P_("menu", "Return"));
+			       ImGui::EndTooltip();
+		       }
+		};
 	}
 }
 
@@ -556,18 +570,6 @@ bool runTutorialMenu()
 	ImGui::Wz::LogoForm();
 
 	// Bottom form
-	static auto top_fn = [] ()
-	{
-		if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
-			changeTitleMode(TITLE);
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::BeginTooltip();
-			ImGui::Text("%s", P_("menu", "Return"));
-			ImGui::EndTooltip();
-		}
-	};
-
 	static auto middle_fn = [] ()
 	{
 		if (ImGui::Wz::ButtonFW(_("Tutorial")))
@@ -587,11 +589,8 @@ bool runTutorialMenu()
 		}
 	};
 
-	static auto bottom_fn = [] ()
-	{
-	};
-
-	ImGui::Wz::TitleForm(_("TUTORIALS"), top_fn, middle_fn, bottom_fn);
+	ImGui::Wz::TitleForm(_("TUTORIALS"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
+			     middle_fn, nullptr);
   }
 	return true;
 }
@@ -745,6 +744,8 @@ void SPinit()
 
 bool runCampaignSelector()
 {
+if (use_wzwidgets)
+{
 	WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 	if (id == FRONTEND_QUIT)
@@ -758,12 +759,36 @@ bool runCampaignSelector()
 	}
 
 	widgDisplayScreen(psWScreen); // show the widgets currently running
+}
+else
+{
+	static QList<CAMPAIGN_FILE> list = readCampaignFiles();
+	static int campaignSelection = -1;
 
-	if (CancelPressed())
+	// Top form
+	ImGui::Wz::LogoForm();
+
+	// Bottom form
+	static auto middle_fn = [] ()
 	{
-		changeTitleMode(SINGLE);
+		campaignSelection = -1;
+		for (int i = 0; i < list.size(); i++)
+		{
+			if (ImGui::Wz::ButtonFW(gettext(list[i].name.toUtf8().constData())))
+				campaignSelection = i;
+		}
+	};
+
+	ImGui::Wz::TitleForm(_("CAMPAIGNS"), ImGui::Wz::TitleFormSimpleReturnFn<SINGLE>,
+			     middle_fn, nullptr);
+
+	if (campaignSelection >= 0)
+	{
+		SPinit();
+		frontEndNewGame(campaignSelection);
 	}
 
+}
 	return true;
 }
 
@@ -836,18 +861,6 @@ bool runSinglePlayerMenu()
 	       ImGui::Wz::LogoForm();
 
 	       // Bottom form
-	       static auto top_fn = [] ()
-	       {
-		       if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
-			       changeTitleMode(TITLE);
-		       if (ImGui::IsItemHovered())
-		       {
-			       ImGui::BeginTooltip();
-			       ImGui::Text("%s", P_("menu", "Return"));
-			       ImGui::EndTooltip();
-		       }
-	       };
-
 	       static auto middle_fn = [] ()
 	       {
 		       if (ImGui::Wz::ButtonFW(_("New Campaign")))
@@ -894,7 +907,8 @@ bool runSinglePlayerMenu()
 		       }
 	       };
 
-	       ImGui::Wz::TitleForm(_("SINGLE PLAYER"), top_fn, middle_fn, bottom_fn);
+	       ImGui::Wz::TitleForm(_("SINGLE PLAYER"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
+				    middle_fn, bottom_fn);
 
 	       if (wantsToQuit)
 		       changeTitleMode(CREDITS);
