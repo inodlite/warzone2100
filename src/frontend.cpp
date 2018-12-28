@@ -194,18 +194,20 @@ namespace ImGui {
 				ImGui::Dummy(ImVec2((frmW - dstW) * 0.5f, 0));
 				ImGui::SameLine();
 				ImGui::Wz::ImageFE(IMAGE_FE_LOGO, ImVec2(dstW, dstH));
-				if (ImGui::IsItemHovered())
-				{
-					static std::string mods_str = getModList();
-
-					ImGui::BeginTooltip();
-					ImGui::Text("%s", version_getFormattedVersionString());
-					if (!mods_str.empty())
-						ImGui::Text("%s %s", _("Mod: "), mods_str.c_str());
-					ImGui::EndTooltip();
-				}
 			}
+
 			ImGui::PopStyleVar(2);
+
+			if (ImGui::IsItemHovered())
+			{
+				static std::string mods_str = getModList();
+
+				ImGui::BeginTooltip();
+				ImGui::Text("%s", version_getFormattedVersionString());
+				if (!mods_str.empty())
+					ImGui::Text("%s %s", _("Mod: "), mods_str.c_str());
+				ImGui::EndTooltip();
+			}
 
 			ImGui::End();
 		}
