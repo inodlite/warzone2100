@@ -963,6 +963,8 @@ static bool startMultiPlayerMenu(void)
 
 bool runMultiPlayerMenu(void)
 {
+if (use_wzwidgets)
+{
 	WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
@@ -1005,7 +1007,45 @@ bool runMultiPlayerMenu(void)
 	{
 		changeTitleMode(TITLE);
 	}
+}
+else
+{
+	// Top form
+	ImGui::Wz::LogoForm();
 
+	// Bottom form
+	static auto middle_fn = [] ()
+	{
+		if (ImGui::Wz::ButtonFW(_("Host Game")))
+		{
+			// don't pretend we are running a network game. Really do it!
+			NetPlay.bComms = true; // use network = true
+			NetPlay.isUPNP_CONFIGURED = false;
+			NetPlay.isUPNP_ERROR = false;
+			ingame.bHostSetup = true;
+			bMultiPlayer = true;
+			bMultiMessages = true;
+			NETinit(true);
+			NETdiscoverUPnPDevices();
+			game.type = SKIRMISH;		// needed?
+			lastTitleMode = MULTI;
+			changeTitleMode(MULTIOPTION);
+		}
+		if (ImGui::Wz::ButtonFW(_("Join Game")))
+		{
+			NETinit(true);
+			ingame.bHostSetup = false;
+			if (getLobbyError() != ERROR_INVALID)
+			{
+				setLobbyError(ERROR_NOERROR);
+			}
+			changeTitleMode(PROTOCOL);
+		}
+	};
+
+	ImGui::Wz::TitleForm(_("MULTI PLAYER"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
+			     middle_fn, nullptr);
+}
 	return true;
 }
 
