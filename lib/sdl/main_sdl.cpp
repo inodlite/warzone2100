@@ -334,10 +334,13 @@ void wzSetStyleWZ()
 	style->Colors[ImGuiCol_PlotLines] = color_for_pbar;
 	style->Colors[ImGuiCol_PlotHistogram] = color_for_pbar;
 	style->Colors[ImGuiCol_CheckMark] = color_for_pbar;
+	style->Colors[ImGuiCol_SliderGrab] = color_for_pbar;
+	style->Colors[ImGuiCol_SliderGrabActive] = color_for_pbar;
 
 	style->WindowBorderSize = 0;
 	style->WindowRounding = 0;
-	style->ScrollbarRounding = 1;
+	style->ScrollbarRounding = 0;
+	style->TabRounding = 0;
 	style->FrameBorderSize = 1;
 }
 
