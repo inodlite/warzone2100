@@ -106,6 +106,7 @@ static void addSmallTextButton(UDWORD id, UDWORD PosX, UDWORD PosY, const char *
 static void doAudioOptionsMenu();
 static void doGameOptionsMenu();
 static void doGraphicsOptionsMenu();
+static void doMouseOptionsMenu();
 static void doVideoOptionsMenu();
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -1182,6 +1183,12 @@ else
 				ImGui::EndTabItem();
 			}
 
+			if (ImGui::BeginTabItem(_("Mouse Options")))
+			{
+				doMouseOptionsMenu();
+				ImGui::EndTabItem();
+			}
+
 			ImGui::EndTabBar();
 		}
 	};
@@ -2216,6 +2223,74 @@ static void doGraphicsOptionsMenu()
 	ImGui::RadioButton(_("Fixed"), &radiobtn_val, 0); ImGui::SameLine();
 	ImGui::RadioButton(_("Rotating"), &radiobtn_val, 1);
 	rotateRadar = radiobtn_val == 1;
+
+	ImGui::Columns();
+
+	ImGui::PopID();
+}
+
+static void doMouseOptionsMenu()
+{
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	ImGui::PushID("mouseopts");
+
+	ImGui::Columns(2, "cols", false);
+	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+	ImGui::TextWrapped(_("Reverse Rotation"));
+
+	ImGui::NextColumn();
+
+	bool bool_val = getInvertMouseStatus();
+	if (ImGui::Checkbox("##invert", &bool_val))
+		setInvertMouseStatus(bool_val);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Trap Cursor"));
+
+	ImGui::NextColumn();
+
+	bool_val = war_GetTrapCursor();
+	if (ImGui::Checkbox("##trap", &bool_val))
+		war_SetTrapCursor(bool_val);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Switch Mouse Buttons"));
+
+	ImGui::NextColumn();
+
+	bool_val = getRightClickOrders();
+	if (ImGui::Checkbox("##rclick", &bool_val))
+		setRightClickOrders(bool_val);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Rotate Screen"));
+
+	ImGui::NextColumn();
+
+	int radiobtn_val = getMiddleClickRotate() ? 1 : 0;
+	if (ImGui::RadioButton(_("Right Mouse"), &radiobtn_val, 0))
+		setMiddleClickRotate(false);
+	ImGui::SameLine();
+	if (ImGui::RadioButton(_("Middle Mouse"), &radiobtn_val, 1))
+		setMiddleClickRotate(true);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Colored Cursors"));
+
+	ImGui::NextColumn();
+
+	bool_val = war_GetColouredCursor();
+	if (ImGui::Checkbox("##rotate", &bool_val))
+	{
+		war_SetColouredCursor(bool_val);
+		wzSetCursor(CURSOR_DEFAULT);
+	}
 
 	ImGui::Columns();
 
