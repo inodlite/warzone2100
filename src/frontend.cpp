@@ -103,6 +103,9 @@ bool			bLimiterLoaded = false;
 
 static void addSmallTextButton(UDWORD id, UDWORD PosX, UDWORD PosY, const char *txt, unsigned int style);
 
+static void doAudioOptionsMenu();
+static void doVideoOptionsMenu();
+
 // ////////////////////////////////////////////////////////////////////////////
 // Helper functions
 
@@ -291,22 +294,35 @@ bool CancelPressed(void)
 
 // Cycle through options, one at a time.
 template <typename T>
-static T stepCycle(T value, T min, T max)
+static T stepCycleDir(bool forwards, T value, T min, T max)
 {
-	return !mouseReleased(MOUSE_RMB) ?
+	return forwards ?
 	       value < max ? T(value + 1) : min :  // Cycle forwards. The T cast is to cycle through enums.
 	       min < value ? T(value - 1) : max;  // Cycle backwards.
+}
+
+// Cycle through options, one at a time.
+template <typename T>
+static T stepCycle(T value, T min, T max)
+{
+	return stepCycleDir<T>(!mouseReleased(MOUSE_RMB), value, min , max);
+}
+
+// Cycle through options, which are powers of two, such as [128, 256, 512, 1024, 2048].
+template <typename T>
+static T pow2CycleDir(bool forwards, T value, T min, T max)
+{
+	return forwards ?
+	       value < max ? std::max<T>(1, value) * 2 : min :  // Cycle forwards.
+	       min < value ? (value / 2 > 1 ? value / 2 : 0) : max;  // Cycle backwards.
 }
 
 // Cycle through options, which are powers of two, such as [128, 256, 512, 1024, 2048].
 template <typename T>
 static T pow2Cycle(T value, T min, T max)
 {
-	return !mouseReleased(MOUSE_RMB) ?
-	       value < max ? std::max<T>(1, value) * 2 : min :  // Cycle forwards.
-	       min < value ? (value / 2 > 1 ? value / 2 : 0) : max;  // Cycle backwards.
+	return pow2CycleDir<T>(!mouseReleased(MOUSE_RMB), value, min , max);
 }
-
 
 // ////////////////////////////////////////////////////////////////////////////
 // Title Screen
@@ -1368,6 +1384,16 @@ else
 
 			ImGui::PopID();
 		}
+
+		if (ImGui::CollapsingHeader(_("Video Options")))
+		{
+			doVideoOptionsMenu();
+		}
+
+		if (ImGui::CollapsingHeader(_("Audio Options")))
+		{
+			doAudioOptionsMenu();
+		}
 	};
 
 	ImGui::Wz::TitleForm(_("OPTIONS"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
@@ -2083,6 +2109,192 @@ bool runGameOptionsMenu(void)
 	return true;
 }
 
+static void cycleResolution(bool forwards)
+{
+	auto compareKey = [](screeninfo const &x) { return std::make_tuple(x.screen, x.width, x.height); };
+	auto compareLess = [&](screeninfo const &a, screeninfo const &b) { return compareKey(a) < compareKey(b); };
+	auto compareEq = [&](screeninfo const &a, screeninfo const &b) { return compareKey(a) == compareKey(b); };
+
+	// Get resolutions, sorted with duplicates removed.
+	std::vector<screeninfo> modes = wzAvailableResolutions();
+	std::sort(modes.begin(), modes.end(), compareLess);
+	modes.erase(std::unique(modes.begin(), modes.end(), compareEq), modes.end());
+
+	// We can't pick resolutions if there aren't any.
+	if (modes.empty())
+	{
+		debug(LOG_ERROR, "No resolutions available to change.");
+		return;
+	}
+
+	// Get currently configured resolution.
+	screeninfo config;
+	config.screen = war_GetScreen();
+	config.width = war_GetWidth();
+	config.height = war_GetHeight();
+	config.refresh_rate = -1;  // Unused.
+
+	// Find current resolution in list.
+	auto current = std::lower_bound(modes.begin(), modes.end(), config, compareLess);
+	if (current == modes.end() || !compareEq(*current, config))
+	{
+		--current;  // If current resolution doesn't exist, round down to next-highest one.
+	}
+
+	// Increment/decrement and loop if required.
+	current = stepCycleDir(forwards, current, modes.begin(), modes.end() - 1);
+
+	// Set the new width and height (takes effect on restart)
+	war_SetScreen(current->screen);
+	war_SetWidth(current->width);
+	war_SetHeight(current->height);
+}
+
+static void doAudioOptionsMenu()
+{
+	ImVec2 windowSize = ImGui::GetWindowSize();
+
+	ImGui::PushID("audopts");
+
+	ImGui::Columns(2, "cols", false);
+	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+	ImGui::TextWrapped(_("Voice Volume"));
+
+	ImGui::NextColumn();
+
+	static const float volume_min = 0;
+	static const float volume_max = 100.0f;
+
+	float cur_vol = sound_GetUIVolume() * 100.0f;
+	if (ImGui::SliderScalar("##vv", ImGuiDataType_Float, &cur_vol,
+			    &volume_min, &volume_max, ""))
+		sound_SetUIVolume(cur_vol / 100.0f);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("FX Volume"));
+
+	ImGui::NextColumn();
+
+	cur_vol = sound_GetEffectsVolume() * 100.0f;
+	if (ImGui::SliderScalar("##fxv", ImGuiDataType_Float, &cur_vol,
+			    &volume_min, &volume_max, ""))
+		sound_SetEffectsVolume(cur_vol / 100.0f);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Music Volume"));
+
+	ImGui::NextColumn();
+
+	cur_vol = sound_GetMusicVolume() * 100.0f;
+	if (ImGui::SliderScalar("##mv", ImGuiDataType_Float, &cur_vol,
+			    &volume_min, &volume_max, ""))
+		sound_SetMusicVolume(cur_vol / 100.0f);
+
+	ImGui::Columns();
+
+	ImGui::PopID();
+}
+
+static void doVideoOptionsMenu()
+{
+	ImVec2 windowSize = ImGui::GetWindowSize();
+
+	ImGui::PushID("vidopts");
+
+	ImGui::TextDisabled(_("* Takes effect on game restart"));
+
+	ImGui::Columns(2, "cols", false);
+	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+	ImGui::TextWrapped(_("Graphics Mode*"));
+
+	ImGui::NextColumn();
+
+	int radiobtn_val = war_getFullscreen() ? 1 : 0;
+	if (ImGui::RadioButton(_("Windowed"), &radiobtn_val, 0))
+		war_setFullscreen(false);
+	ImGui::SameLine();
+	if (ImGui::RadioButton(_("Fullscreen"), &radiobtn_val, 1))
+		war_setFullscreen(true);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Resolution*"));
+
+	ImGui::NextColumn();
+
+	ImGui::PushID("res");
+
+	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+		cycleResolution(false);
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+		cycleResolution(true);
+	ImGui::SameLine();
+	ImGui::Text("%s", videoOptionsResolutionString().c_str());
+
+	ImGui::PopID();
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Texture size"));
+
+	ImGui::NextColumn();
+
+	ImGui::PushID("tsize");
+
+	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+		setTextureSize(pow2CycleDir(false, getTextureSize(), 128, 2048));
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+		setTextureSize(pow2CycleDir(true, getTextureSize(), 128, 2048));
+	ImGui::SameLine();
+	ImGui::Text("%s", videoOptionsTextureSizeString().c_str());
+
+	ImGui::PopID();
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Vertical sync"));
+
+	ImGui::NextColumn();
+
+	bool bool_val = war_GetVsync();
+	if (ImGui::Checkbox("##vsync", &bool_val))
+	{
+		wzSetSwapInterval(bool_val);
+		war_SetVsync(wzGetSwapInterval());
+	}
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Antialiasing*"));
+
+	ImGui::NextColumn();
+
+	ImGui::PushID("aa");
+
+	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+		war_setAntialiasing(pow2CycleDir(false, war_getAntialiasing(),
+					      0, pie_GetMaxAntialiasing()));
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+		war_setAntialiasing(pow2CycleDir(true, war_getAntialiasing(),
+					      0, pie_GetMaxAntialiasing()));
+	ImGui::SameLine();
+	ImGui::Text("%s", videoOptionsAntialiasingString().c_str());
+
+	ImGui::PopID();
+
+	ImGui::Columns();
+
+	ImGui::PopID();
+}
 
 // ////////////////////////////////////////////////////////////////////////////
 // drawing functions
