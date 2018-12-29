@@ -1168,6 +1168,36 @@ else
 				setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
 			}
 
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Scroll Speed"));
+
+			ImGui::NextColumn();
+
+			static UDWORD scroll_speed_accel_min = 0;
+			static UDWORD scroll_speed_accel_max = 1600;
+			ImGui::SliderScalar("", ImGuiDataType_U32, &scroll_speed_accel,
+					    &scroll_speed_accel_min, &scroll_speed_accel_max, "%u");
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Unit Colour:"));
+
+			ImGui::NextColumn();
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Campaign"));
+
+			ImGui::NextColumn();
+
+			//
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Skirmish/Multiplayer"));
+
+			ImGui::NextColumn();
+
 			ImGui::Columns();
 		}
 
