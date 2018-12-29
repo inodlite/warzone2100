@@ -105,6 +105,8 @@ bool			bLimiterLoaded = false;
 static void addSmallTextButton(UDWORD id, UDWORD PosX, UDWORD PosY, const char *txt, unsigned int style);
 
 static void doAudioOptionsMenu();
+static void doGameOptionsMenu();
+static void doGraphicsOptionsMenu();
 static void doVideoOptionsMenu();
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -1175,246 +1177,34 @@ else
 
 	static auto bottom_fn = [] ()
 	{
-		ImVec2 windowSize = ImGui::GetWindowSize();
-
-		if (ImGui::CollapsingHeader(_("Game Options")))
+		ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+		if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
 		{
-			ImGui::PushID("gameopts");
-
-			ImGui::Columns(2, "cols", false);
-			ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
-			ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
-
-			ImGui::TextWrapped(_("Language"));
-
-			ImGui::NextColumn();
-
-			ImGui::PushID("lng");
-
-			if (ImGui::ArrowButton("##left", ImGuiDir_Left))
-				setNextLanguage(true);
-			ImGui::SameLine();
-			if (ImGui::ArrowButton("##right", ImGuiDir_Right))
-				setNextLanguage(false);
-			ImGui::SameLine();
-			ImGui::TextWrapped("%s", getLanguageName());
-
-			ImGui::PopID();
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Campaign Difficulty"));
-
-			ImGui::NextColumn();
-
-			int dl_idx = static_cast<int>(getDifficultyLevel());
-
-			static std::array<char*, 3> str_array;
-			str_array[0] = _("Easy");
-			str_array[1] = _("Normal");
-			str_array[2] = _("Hard");
-
-			if (ImGui::Combo("##dl", &dl_idx,
-					 &str_array.front(), str_array.size()))
+			if (ImGui::BeginTabItem(_("Game Options")))
 			{
-				setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
+				doGameOptionsMenu();
+				ImGui::EndTabItem();
 			}
 
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Scroll Speed"));
-
-			ImGui::NextColumn();
-
-			static UDWORD scroll_speed_accel_min = 100;
-			static UDWORD scroll_speed_accel_max = 1600;
-
-			ImGui::SliderScalar("##sa", ImGuiDataType_U32, &scroll_speed_accel,
-					    &scroll_speed_accel_min, &scroll_speed_accel_max, "");
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Unit Colour:"));
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Campaign"));
-			ImGui::SameLine();
-
-			ImGui::PushID("spcol");
-
-			static std::array<ImVec4, MAX_PLAYERS_IN_GUI> tcarr;
-			for (int colour = 0; colour < MAX_PLAYERS_IN_GUI; ++colour)
+			if (ImGui::BeginTabItem(_("Graphics Options")))
 			{
-				tcarr[colour] = pal_PIELIGHTtoImVec4(pal_GetTeamColour(colour));
+				doGraphicsOptionsMenu();
+				ImGui::EndTabItem();
 			}
 
-			// FIXME: if playercolor = 1-3, then we Assert in widgSetButtonState() since we don't define FE_P1 - FE_P3
-			// I assume the reason is that in SP games, those are reserved for the AI?  Valid values are 0, 4-7.
-			// This is a workaround, until we find what is setting that to 1-3.  See configuration.c:701
-			int8_t playercolor = war_GetSPcolor();
-			if ((playercolor >= 1 && playercolor <= 3) || playercolor >= MAX_PLAYERS_IN_GUI)
+			if (ImGui::BeginTabItem(_("Video Options")))
 			{
-				playercolor = 0;
-			}
-			ImVec4 tc = tcarr[playercolor];
-
-			if (ImGui::Wz::ColorButtonFE("##cur", tc))
-				ImGui::OpenPopup("sppalette");
-
-			if (ImGui::BeginPopup("sppalette"))
-			{
-				if (ImGui::Wz::ColorButtonFE("##tc0", tcarr[0]))
-					war_SetSPcolor(0);
-				for (int spcnt = 4; spcnt < 8; ++spcnt)
-				{
-					ImGui::SameLine();
-					ImGui::PushID(spcnt);
-					if (ImGui::Wz::ColorButtonFE("##tc", tcarr[spcnt]))
-						war_SetSPcolor(spcnt);
-					ImGui::PopID();
-				}
-				ImGui::EndPopup();
+				doVideoOptionsMenu();
+				ImGui::EndTabItem();
 			}
 
-			ImGui::PopID();
-
-			ImGui::NextColumn();
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Skirmish/Multiplayer"));
-			ImGui::SameLine();
-
-			ImGui::PushID("mpcol");
-
-			ImVec4 tcmix;
-			const int scale = 4000;
-			int f = realTime % scale;
-
-			tcmix.x = 0.5f + iSinR(65536 * f / scale + 65536 * 0 / 3, 127) / 255.0f;
-			tcmix.y = 0.5f + iSinR(65536 * f / scale + 65536 * 1 / 3, 127) / 255.0f;
-			tcmix.z = 0.5f + iSinR(65536 * f / scale + 65536 * 2 / 3, 127) / 255.0f;
-			tcmix.w = 1.0f;
-
-			playercolor = war_getMPcolour();
-			if (playercolor < 0)
-				tc = tcmix;
-			else
-				tc = tcarr[playercolor];
-
-			if (ImGui::Wz::ColorButtonFE("##cur", tc))
-				ImGui::OpenPopup("mppalette");
-
-			if (ImGui::BeginPopup("mppalette"))
+			if (ImGui::BeginTabItem(_("Audio Options")))
 			{
-				if (ImGui::Wz::ColorButtonFE("##tcdyn", tcmix))
-					war_setMPcolour(-1);
-				for (int mpcnt = 0; mpcnt < MAX_PLAYERS_IN_GUI; ++mpcnt)
-				{
-					ImGui::SameLine();
-					ImGui::PushID(mpcnt);
-					if (ImGui::Wz::ColorButtonFE("##tc", tcarr[mpcnt]))
-						war_setMPcolour(mpcnt);
-					ImGui::PopID();
-				}
-				ImGui::EndPopup();
+				doAudioOptionsMenu();
+				ImGui::EndTabItem();
 			}
 
-			ImGui::PopID();
-
-			ImGui::Columns();
-
-			ImGui::PopID();
-		}
-
-		if (ImGui::CollapsingHeader(_("Graphics Options")))
-		{
-			ImGui::PushID("gfxopts");
-
-			ImGui::Columns(2, "cols", false);
-			ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
-			ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
-
-			ImGui::TextWrapped(_("Video Playback"));
-
-			ImGui::NextColumn();
-
-			int fmv_idx = static_cast<int>(war_GetFMVmode());
-
-			static std::array<char*, 3> str_array_fmv;
-			str_array_fmv[0] = _("Fullscreen");
-			str_array_fmv[1] = _("1×");
-			str_array_fmv[2] = _("2×");
-
-			if (ImGui::Combo("##fmv", &fmv_idx,
-					 &str_array_fmv.front(), str_array_fmv.size()))
-			{
-				war_SetFMVmode(static_cast<FMV_MODE>(fmv_idx));
-			}
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Scanlines"));
-
-			ImGui::NextColumn();
-
-			int scn_idx = static_cast<int>(war_getScanlineMode());
-
-			static std::array<char*, 3> str_array_scn;
-			str_array_scn[0] = _("Off");
-			str_array_scn[1] = _("50%");
-			str_array_scn[2] = _("Black");
-
-			if (ImGui::Combo("##scn", &scn_idx,
-					 &str_array_scn.front(), str_array_scn.size()))
-			{
-				war_setScanlineMode(static_cast<SCANLINE_MODE>(scn_idx));
-			}
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Subtitles"));
-
-			ImGui::NextColumn();
-
-			bool bool_val = seq_GetSubtitles();
-			if (ImGui::Checkbox("##sbt", &bool_val))
-				seq_SetSubtitles(bool_val);
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Shadows"));
-
-			ImGui::NextColumn();
-
-			bool_val = getDrawShadows();
-			if (ImGui::Checkbox("##shd", &bool_val))
-				setDrawShadows(bool_val);
-
-			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Radar"));
-
-			ImGui::NextColumn();
-
-			int radiobtn_val = rotateRadar ? 1 : 0;
-			ImGui::RadioButton(_("Fixed"), &radiobtn_val, 0); ImGui::SameLine();
-			ImGui::RadioButton(_("Rotating"), &radiobtn_val, 1);
-			rotateRadar = radiobtn_val == 1;
-
-			ImGui::Columns();
-
-			ImGui::PopID();
-		}
-
-		if (ImGui::CollapsingHeader(_("Video Options")))
-		{
-			doVideoOptionsMenu();
-		}
-
-		if (ImGui::CollapsingHeader(_("Audio Options")))
-		{
-			doAudioOptionsMenu();
+			ImGui::EndTabBar();
 		}
 	};
 
@@ -2569,6 +2359,239 @@ static void doAudioOptionsMenu()
 	if (ImGui::SliderScalar("##mv", ImGuiDataType_Float, &cur_vol,
 			    &volume_min, &volume_max, ""))
 		sound_SetMusicVolume(cur_vol / 100.0f);
+
+	ImGui::Columns();
+
+	ImGui::PopID();
+}
+
+static void doGameOptionsMenu()
+{
+	ImVec2 windowSize = ImGui::GetWindowSize();
+
+	ImGui::PushID("gameopts");
+
+	ImGui::Columns(2, "cols", false);
+	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+	ImGui::TextWrapped(_("Language"));
+
+	ImGui::NextColumn();
+
+	ImGui::PushID("lng");
+
+	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+		setNextLanguage(true);
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+		setNextLanguage(false);
+	ImGui::SameLine();
+	ImGui::TextWrapped("%s", getLanguageName());
+
+	ImGui::PopID();
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Campaign Difficulty"));
+
+	ImGui::NextColumn();
+
+	int dl_idx = static_cast<int>(getDifficultyLevel());
+
+	static std::array<char*, 3> str_array;
+	str_array[0] = _("Easy");
+	str_array[1] = _("Normal");
+	str_array[2] = _("Hard");
+
+	if (ImGui::Combo("##dl", &dl_idx,
+			 &str_array.front(), str_array.size()))
+	{
+		setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
+	}
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Scroll Speed"));
+
+	ImGui::NextColumn();
+
+	static UDWORD scroll_speed_accel_min = 100;
+	static UDWORD scroll_speed_accel_max = 1600;
+
+	ImGui::SliderScalar("##sa", ImGuiDataType_U32, &scroll_speed_accel,
+			    &scroll_speed_accel_min, &scroll_speed_accel_max, "");
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Unit Colour:"));
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Campaign"));
+	ImGui::SameLine();
+
+	ImGui::PushID("spcol");
+
+	static std::array<ImVec4, MAX_PLAYERS_IN_GUI> tcarr;
+	for (int colour = 0; colour < MAX_PLAYERS_IN_GUI; ++colour)
+	{
+		tcarr[colour] = pal_PIELIGHTtoImVec4(pal_GetTeamColour(colour));
+	}
+
+	// FIXME: if playercolor = 1-3, then we Assert in widgSetButtonState() since we don't define FE_P1 - FE_P3
+	// I assume the reason is that in SP games, those are reserved for the AI?  Valid values are 0, 4-7.
+	// This is a workaround, until we find what is setting that to 1-3.  See configuration.c:701
+	int8_t playercolor = war_GetSPcolor();
+	if ((playercolor >= 1 && playercolor <= 3) || playercolor >= MAX_PLAYERS_IN_GUI)
+	{
+		playercolor = 0;
+	}
+	ImVec4 tc = tcarr[playercolor];
+
+	if (ImGui::Wz::ColorButtonFE("##cur", tc))
+		ImGui::OpenPopup("sppalette");
+
+	if (ImGui::BeginPopup("sppalette"))
+	{
+		if (ImGui::Wz::ColorButtonFE("##tc0", tcarr[0]))
+			war_SetSPcolor(0);
+		for (int spcnt = 4; spcnt < 8; ++spcnt)
+		{
+			ImGui::SameLine();
+			ImGui::PushID(spcnt);
+			if (ImGui::Wz::ColorButtonFE("##tc", tcarr[spcnt]))
+				war_SetSPcolor(spcnt);
+			ImGui::PopID();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopID();
+
+	ImGui::NextColumn();
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Skirmish/Multiplayer"));
+	ImGui::SameLine();
+
+	ImGui::PushID("mpcol");
+
+	ImVec4 tcmix;
+	const int scale = 4000;
+	int f = realTime % scale;
+
+	tcmix.x = 0.5f + iSinR(65536 * f / scale + 65536 * 0 / 3, 127) / 255.0f;
+	tcmix.y = 0.5f + iSinR(65536 * f / scale + 65536 * 1 / 3, 127) / 255.0f;
+	tcmix.z = 0.5f + iSinR(65536 * f / scale + 65536 * 2 / 3, 127) / 255.0f;
+	tcmix.w = 1.0f;
+
+	playercolor = war_getMPcolour();
+	if (playercolor < 0)
+		tc = tcmix;
+	else
+		tc = tcarr[playercolor];
+
+	if (ImGui::Wz::ColorButtonFE("##cur", tc))
+		ImGui::OpenPopup("mppalette");
+
+	if (ImGui::BeginPopup("mppalette"))
+	{
+		if (ImGui::Wz::ColorButtonFE("##tcdyn", tcmix))
+			war_setMPcolour(-1);
+		for (int mpcnt = 0; mpcnt < MAX_PLAYERS_IN_GUI; ++mpcnt)
+		{
+			ImGui::SameLine();
+			ImGui::PushID(mpcnt);
+			if (ImGui::Wz::ColorButtonFE("##tc", tcarr[mpcnt]))
+				war_setMPcolour(mpcnt);
+			ImGui::PopID();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopID();
+
+	ImGui::Columns();
+
+	ImGui::PopID();
+}
+
+static void doGraphicsOptionsMenu()
+{
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	ImGui::PushID("gfxopts");
+
+	ImGui::Columns(2, "cols", false);
+	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+	ImGui::TextWrapped(_("Video Playback"));
+
+	ImGui::NextColumn();
+
+	int fmv_idx = static_cast<int>(war_GetFMVmode());
+
+	static std::array<char*, 3> str_array_fmv;
+	str_array_fmv[0] = _("Fullscreen");
+	str_array_fmv[1] = _("1×");
+	str_array_fmv[2] = _("2×");
+
+	if (ImGui::Combo("##fmv", &fmv_idx,
+			 &str_array_fmv.front(), str_array_fmv.size()))
+	{
+		war_SetFMVmode(static_cast<FMV_MODE>(fmv_idx));
+	}
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Scanlines"));
+
+	ImGui::NextColumn();
+
+	int scn_idx = static_cast<int>(war_getScanlineMode());
+
+	static std::array<char*, 3> str_array_scn;
+	str_array_scn[0] = _("Off");
+	str_array_scn[1] = _("50%");
+	str_array_scn[2] = _("Black");
+
+	if (ImGui::Combo("##scn", &scn_idx,
+			 &str_array_scn.front(), str_array_scn.size()))
+	{
+		war_setScanlineMode(static_cast<SCANLINE_MODE>(scn_idx));
+	}
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Subtitles"));
+
+	ImGui::NextColumn();
+
+	bool bool_val = seq_GetSubtitles();
+	if (ImGui::Checkbox("##sbt", &bool_val))
+		seq_SetSubtitles(bool_val);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Shadows"));
+
+	ImGui::NextColumn();
+
+	bool_val = getDrawShadows();
+	if (ImGui::Checkbox("##shd", &bool_val))
+		setDrawShadows(bool_val);
+
+	ImGui::NextColumn();
+
+	ImGui::TextWrapped(_("Radar"));
+
+	ImGui::NextColumn();
+
+	int radiobtn_val = rotateRadar ? 1 : 0;
+	ImGui::RadioButton(_("Fixed"), &radiobtn_val, 0); ImGui::SameLine();
+	ImGui::RadioButton(_("Rotating"), &radiobtn_val, 1);
+	rotateRadar = radiobtn_val == 1;
 
 	ImGui::Columns();
 
