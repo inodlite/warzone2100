@@ -1201,20 +1201,27 @@ else
 			ImGui::TextWrapped(_("Unit Colour:"));
 
 			ImGui::NextColumn();
-			ImGui::NextColumn();
 
 			ImGui::TextWrapped(_("Campaign"));
-
-			ImGui::NextColumn();
+			ImGui::SameLine();
 
 			ImGui::PushID("spcol");
 
 			static std::array<ImVec4, MAX_PLAYERS_IN_GUI> tcarr;
-			for (int colour = -1; colour < MAX_PLAYERS_IN_GUI; ++colour)
+			for (int colour = 0; colour < MAX_PLAYERS_IN_GUI; ++colour)
 			{
 				tcarr[colour] = pal_PIELIGHTtoImVec4(pal_GetTeamColour(colour));
 			}
-			ImVec4 tc = tcarr[war_GetSPcolor()];
+
+			// FIXME: if playercolor = 1-3, then we Assert in widgSetButtonState() since we don't define FE_P1 - FE_P3
+			// I assume the reason is that in SP games, those are reserved for the AI?  Valid values are 0, 4-7.
+			// This is a workaround, until we find what is setting that to 1-3.  See configuration.c:701
+			int8_t playercolor = war_GetSPcolor();
+			if ((playercolor >= 1 && playercolor <= 3) || playercolor >= MAX_PLAYERS_IN_GUI)
+			{
+				playercolor = 0;
+			}
+			ImVec4 tc = tcarr[playercolor];
 
 			if (ImGui::Wz::ColorButtonFE("##cur", tc))
 				ImGui::OpenPopup("sppalette");
@@ -1237,12 +1244,45 @@ else
 			ImGui::PopID();
 
 			ImGui::NextColumn();
-
-			ImGui::TextWrapped(_("Skirmish/Multiplayer"));
-
 			ImGui::NextColumn();
 
+			ImGui::TextWrapped(_("Skirmish/Multiplayer"));
+			ImGui::SameLine();
+
 			ImGui::PushID("mpcol");
+
+			ImVec4 tcmix;
+			const int scale = 4000;
+			int f = realTime % scale;
+
+			tcmix.x = 0.5f + iSinR(65536 * f / scale + 65536 * 0 / 3, 127) / 255.0f;
+			tcmix.y = 0.5f + iSinR(65536 * f / scale + 65536 * 1 / 3, 127) / 255.0f;
+			tcmix.z = 0.5f + iSinR(65536 * f / scale + 65536 * 2 / 3, 127) / 255.0f;
+			tcmix.w = 1.0f;
+
+			playercolor = war_getMPcolour();
+			if (playercolor < 0)
+				tc = tcmix;
+			else
+				tc = tcarr[playercolor];
+
+			if (ImGui::Wz::ColorButtonFE("##cur", tc))
+				ImGui::OpenPopup("mppalette");
+
+			if (ImGui::BeginPopup("mppalette"))
+			{
+				if (ImGui::Wz::ColorButtonFE("##tcdyn", tcmix))
+					war_setMPcolour(-1);
+				for (int mpcnt = 0; mpcnt < MAX_PLAYERS_IN_GUI; ++mpcnt)
+				{
+					ImGui::SameLine();
+					ImGui::PushID(mpcnt);
+					if (ImGui::Wz::ColorButtonFE("##tc", tcarr[mpcnt]))
+						war_setMPcolour(mpcnt);
+					ImGui::PopID();
+				}
+				ImGui::EndPopup();
+			}
 
 			ImGui::PopID();
 
