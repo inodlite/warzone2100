@@ -148,4 +148,24 @@ static inline PIELIGHT WZ_DECL_PURE pal_RGBA(UBYTE r, UBYTE g, UBYTE b, UBYTE a)
 	return { r, g, b, a };
 }
 
+static inline glm::vec4 pal_PIELIGHTtoVec4(PIELIGHT rgba)
+{
+	return (1 / 255.0f) * glm::vec4{
+		rgba.byte.r,
+		rgba.byte.g,
+		rgba.byte.b,
+		rgba.byte.a
+	};
+}
+
+static inline ImVec4 pal_PIELIGHTtoImVec4(PIELIGHT rgba)
+{
+	return ImVec4(
+		rgba.byte.r / 255.0f,
+		rgba.byte.g / 255.0f,
+		rgba.byte.b / 255.0f,
+		rgba.byte.a / 255.0f
+	);
+}
+
 #endif

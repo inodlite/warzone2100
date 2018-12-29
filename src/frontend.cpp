@@ -163,6 +163,15 @@ namespace ImGui {
 			return ImageButton(image, size);
 		}
 
+		bool ColorButtonFE(const char* label, const ImVec4& col)
+		{
+			return ImGui::ColorButton(label, col,
+						  ImGuiColorEditFlags_NoAlpha |
+						  ImGuiColorEditFlags_NoPicker |
+						  ImGuiColorEditFlags_NoTooltip,
+						  ImVec2(20,20));
+		}
+
 		void LogoForm()
 		{
 			int frmW = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEW : FRONTEND_TOPFORMW;
@@ -1144,6 +1153,8 @@ else
 
 			ImGui::NextColumn();
 
+			ImGui::PushID("lng");
+
 			if (ImGui::ArrowButton("##left", ImGuiDir_Left))
 				setNextLanguage(true);
 			ImGui::SameLine();
@@ -1151,6 +1162,8 @@ else
 				setNextLanguage(false);
 			ImGui::SameLine();
 			ImGui::TextWrapped("%s", getLanguageName());
+
+			ImGui::PopID();
 
 			ImGui::NextColumn();
 
@@ -1165,8 +1178,8 @@ else
 			str_array[1] = _("Normal");
 			str_array[2] = _("Hard");
 
-			if (ImGui::Combo("", &dl_idx,
-					 *str_array.data(), str_array.size()))
+			if (ImGui::Combo("##dl", &dl_idx,
+					 &str_array.front(), str_array.size()))
 			{
 				setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
 			}
@@ -1177,10 +1190,11 @@ else
 
 			ImGui::NextColumn();
 
-			static UDWORD scroll_speed_accel_min = 0;
+			static UDWORD scroll_speed_accel_min = 100;
 			static UDWORD scroll_speed_accel_max = 1600;
-			ImGui::SliderScalar("", ImGuiDataType_U32, &scroll_speed_accel,
-					    &scroll_speed_accel_min, &scroll_speed_accel_max, "%u");
+
+			ImGui::SliderScalar("##sa", ImGuiDataType_U32, &scroll_speed_accel,
+					    &scroll_speed_accel_min, &scroll_speed_accel_max, "");
 
 			ImGui::NextColumn();
 
@@ -1193,13 +1207,44 @@ else
 
 			ImGui::NextColumn();
 
-			//
+			ImGui::PushID("spcol");
+
+			static std::array<ImVec4, MAX_PLAYERS_IN_GUI> tcarr;
+			for (int colour = -1; colour < MAX_PLAYERS_IN_GUI; ++colour)
+			{
+				tcarr[colour] = pal_PIELIGHTtoImVec4(pal_GetTeamColour(colour));
+			}
+			ImVec4 tc = tcarr[war_GetSPcolor()];
+
+			if (ImGui::Wz::ColorButtonFE("##cur", tc))
+				ImGui::OpenPopup("sppalette");
+
+			if (ImGui::BeginPopup("sppalette"))
+			{
+				if (ImGui::Wz::ColorButtonFE("##tc0", tcarr[0]))
+					war_SetSPcolor(0);
+				for (int spcnt = 4; spcnt < 8; ++spcnt)
+				{
+					ImGui::SameLine();
+					ImGui::PushID(spcnt);
+					if (ImGui::Wz::ColorButtonFE("##tc", tcarr[spcnt]))
+						war_SetSPcolor(spcnt);
+					ImGui::PopID();
+				}
+				ImGui::EndPopup();
+			}
+
+			ImGui::PopID();
 
 			ImGui::NextColumn();
 
 			ImGui::TextWrapped(_("Skirmish/Multiplayer"));
 
 			ImGui::NextColumn();
+
+			ImGui::PushID("mpcol");
+
+			ImGui::PopID();
 
 			ImGui::Columns();
 		}
