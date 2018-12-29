@@ -1076,6 +1076,8 @@ static bool startOptionsMenu(void)
 
 bool runOptionsMenu(void)
 {
+if (use_wzwidgets)
+{
 	WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 	unsigned id = triggers.empty() ? 0 : triggers.front().widget->id; // Just use first click here, since the next click could be on another menu.
 
@@ -1113,7 +1115,70 @@ bool runOptionsMenu(void)
 	}
 
 	widgDisplayScreen(psWScreen);						// show the widgets currently running
+}
+else
+{
+	// Top form
+	ImGui::Wz::LogoForm();
 
+	// Bottom form
+	static auto middle_fn = [] ()
+	{
+	};
+
+	static auto bottom_fn = [] ()
+	{
+		if (ImGui::CollapsingHeader(_("Game Options")))
+		{
+			ImVec2 windowSize = ImGui::GetWindowSize();
+
+			// Use 3 columns with no borders and make middle one wide enough
+			ImGui::Columns(2, "OptionsMenuColumns", false);
+			ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+			ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+			ImGui::TextWrapped(_("Language"));
+
+			ImGui::NextColumn();
+
+			if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+				setNextLanguage(true);
+			ImGui::SameLine();
+			if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+				setNextLanguage(false);
+			ImGui::SameLine();
+			ImGui::TextWrapped("%s", getLanguageName());
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Campaign Difficulty"));
+
+			ImGui::NextColumn();
+
+			int dl_idx = static_cast<int>(getDifficultyLevel());
+
+			std::array<char*, 3> str_array;
+			str_array[0] = _("Easy");
+			str_array[1] = _("Normal");
+			str_array[2] = _("Hard");
+
+			if (ImGui::Combo("", &dl_idx,
+					 *str_array.data(), str_array.size()))
+			{
+				setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
+			}
+
+			ImGui::Columns();
+		}
+
+		if (ImGui::CollapsingHeader(_("Graphics Options")))
+		{
+		}
+	};
+
+	ImGui::Wz::TitleForm(_("OPTIONS"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
+			     middle_fn, bottom_fn);
+}
 	return true;
 }
 
