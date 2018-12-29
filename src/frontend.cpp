@@ -1137,12 +1137,13 @@ else
 
 	static auto bottom_fn = [] ()
 	{
+		ImVec2 windowSize = ImGui::GetWindowSize();
+
 		if (ImGui::CollapsingHeader(_("Game Options")))
 		{
-			ImVec2 windowSize = ImGui::GetWindowSize();
+			ImGui::PushID("gameopts");
 
-			// Use 3 columns with no borders and make middle one wide enough
-			ImGui::Columns(2, "OptionsMenuColumns", false);
+			ImGui::Columns(2, "cols", false);
 			ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
 			ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
 
@@ -1170,7 +1171,7 @@ else
 
 			int dl_idx = static_cast<int>(getDifficultyLevel());
 
-			std::array<char*, 3> str_array;
+			static std::array<char*, 3> str_array;
 			str_array[0] = _("Easy");
 			str_array[1] = _("Normal");
 			str_array[2] = _("Hard");
@@ -1284,10 +1285,88 @@ else
 			ImGui::PopID();
 
 			ImGui::Columns();
+
+			ImGui::PopID();
 		}
 
 		if (ImGui::CollapsingHeader(_("Graphics Options")))
 		{
+			ImGui::PushID("gfxopts");
+
+			ImGui::Columns(2, "cols", false);
+			ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
+			ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
+
+			ImGui::TextWrapped(_("Video Playback"));
+
+			ImGui::NextColumn();
+
+			int fmv_idx = static_cast<int>(war_GetFMVmode());
+
+			static std::array<char*, 3> str_array_fmv;
+			str_array_fmv[0] = _("Fullscreen");
+			str_array_fmv[1] = _("1×");
+			str_array_fmv[2] = _("2×");
+
+			if (ImGui::Combo("##fmv", &fmv_idx,
+					 &str_array_fmv.front(), str_array_fmv.size()))
+			{
+				war_SetFMVmode(static_cast<FMV_MODE>(fmv_idx));
+			}
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Scanlines"));
+
+			ImGui::NextColumn();
+
+			int scn_idx = static_cast<int>(war_getScanlineMode());
+
+			static std::array<char*, 3> str_array_scn;
+			str_array_scn[0] = _("Off");
+			str_array_scn[1] = _("50%");
+			str_array_scn[2] = _("Black");
+
+			if (ImGui::Combo("##scn", &scn_idx,
+					 &str_array_scn.front(), str_array_scn.size()))
+			{
+				war_setScanlineMode(static_cast<SCANLINE_MODE>(scn_idx));
+			}
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Subtitles"));
+
+			ImGui::NextColumn();
+
+			bool bool_val = seq_GetSubtitles();
+			if (ImGui::Checkbox("##sbt", &bool_val))
+				seq_SetSubtitles(bool_val);
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Shadows"));
+
+			ImGui::NextColumn();
+
+			bool_val = getDrawShadows();
+			if (ImGui::Checkbox("##shd", &bool_val))
+				setDrawShadows(bool_val);
+
+			ImGui::NextColumn();
+
+			ImGui::TextWrapped(_("Radar"));
+
+			ImGui::NextColumn();
+
+			int radiobtn_val = rotateRadar ? 1 : 0;
+			ImGui::RadioButton(_("Fixed"), &radiobtn_val, 0); ImGui::SameLine();
+			ImGui::RadioButton(_("Rotating"), &radiobtn_val, 1);
+			rotateRadar = radiobtn_val == 1;
+
+			ImGui::Columns();
+
+			ImGui::PopID();
 		}
 	};
 
