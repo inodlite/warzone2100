@@ -1178,34 +1178,33 @@ else
 
 	static auto bottom_fn = [] ()
 	{
-		ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-		if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
+		if (ImGui::BeginTabBar("OptsTabBar", ImGuiTabBarFlags_None))
 		{
-			if (ImGui::BeginTabItem(_("Game Options")))
+			if (ImGui::BeginTabItem(_("Game")))
 			{
 				doGameOptionsMenu();
 				ImGui::EndTabItem();
 			}
 
-			if (ImGui::BeginTabItem(_("Graphics Options")))
+			if (ImGui::BeginTabItem(_("Graphics")))
 			{
 				doGraphicsOptionsMenu();
 				ImGui::EndTabItem();
 			}
 
-			if (ImGui::BeginTabItem(_("Video Options")))
+			if (ImGui::BeginTabItem(_("Video")))
 			{
 				doVideoOptionsMenu();
 				ImGui::EndTabItem();
 			}
 
-			if (ImGui::BeginTabItem(_("Audio Options")))
+			if (ImGui::BeginTabItem(_("Audio")))
 			{
 				doAudioOptionsMenu();
 				ImGui::EndTabItem();
 			}
 
-			if (ImGui::BeginTabItem(_("Mouse Options")))
+			if (ImGui::BeginTabItem(_("Mouse")))
 			{
 				doMouseOptionsMenu();
 				ImGui::EndTabItem();
