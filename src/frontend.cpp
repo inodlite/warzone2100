@@ -1176,8 +1176,11 @@ else
 	{
 	};
 
+	static bool open_keymap;
+
 	static auto bottom_fn = [] ()
 	{
+		open_keymap = false;
 		if (ImGui::BeginTabBar("OptsTabBar", ImGuiTabBarFlags_None))
 		{
 			if (ImGui::BeginTabItem(_("Game")))
@@ -1210,12 +1213,21 @@ else
 				ImGui::EndTabItem();
 			}
 
+			if (ImGui::BeginTabItem(_("Key Mappings")))
+			{
+				//TODO: reimplemnt keymap form
+				open_keymap = ImGui::Button(_("Open Key Mappings Dialog"));
+				ImGui::EndTabItem();
+			}
+
 			ImGui::EndTabBar();
 		}
 	};
 
 	ImGui::Wz::TitleForm(_("OPTIONS"), ImGui::Wz::TitleFormSimpleReturnFn<TITLE>,
 			     middle_fn, bottom_fn);
+	if (open_keymap)
+		changeTitleMode(KEYMAP);
 }
 	return true;
 }
