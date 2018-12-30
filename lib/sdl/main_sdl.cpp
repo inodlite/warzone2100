@@ -311,6 +311,11 @@ void imgui_easy_theming(ImVec3 color_for_text, ImVec3 color_for_head, ImVec3 col
 	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.43f );
 	style.Colors[ImGuiCol_PopupBg] = ImVec4( color_for_pops.x, color_for_pops.y, color_for_pops.z, 0.92f );
 	style.Colors[ImGuiCol_ModalWindowDarkening] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.73f );
+	style.Colors[ImGuiCol_Tab] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.47f );
+	style.Colors[ImGuiCol_TabActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 1.00f );
+	style.Colors[ImGuiCol_TabHovered] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.86f );
+	style.Colors[ImGuiCol_TabUnfocused] = ImVec4( color_for_area.x, color_for_area.y, color_for_area.z, 0.47f );
+	style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4( color_for_head.x, color_for_head.y, color_for_head.z, 0.86f );
 }
 
 void wzSetStyleWZ()
