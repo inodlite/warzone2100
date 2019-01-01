@@ -40,8 +40,11 @@
 #include "lib/ivis_opengl/piestate.h"
 #include "lib/ivis_opengl/ivisdef.h"
 #include "lib/ivis_opengl/screen.h"
+#include "lib/ivis_opengl/tex.h"
 #include "lib/script/script.h"
 #include "lib/netplay/netplay.h"
+
+#include "imgui/imgui.h"
 
 #include "action.h"
 #include "lib/sound/audio_id.h"
@@ -356,6 +359,57 @@ static STRUCTURE *intCheckForStructure(UDWORD structType);
 // count the number of selected droids of a type
 static SDWORD intNumSelectedDroids(UDWORD droidType);
 
+// ////////////////////////////////////////////////////////////////////////////
+// GUI Helper functions
+
+namespace ImGui {
+	namespace Wz {
+		void Image(const ImageDef *image, const ImVec2& size, const ImVec4& tint_col)
+		{
+			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+				     size,
+				     ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
+					    (image->YOffset + image->Tv) * image->invTextureSize),
+				     ImVec2((image->XOffset + image->Width + image->Tu) * image->invTextureSize,
+					    (image->YOffset + image->Height + image->Tv) * image->invTextureSize),
+				     tint_col);
+		}
+
+		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col)
+		{
+			ImageDef *image = iV_GetImage(QString(tex_name));
+			Image(image, size, tint_col);
+		}
+
+		void ImageHCI(const int img_id, const ImVec2& size, const ImVec4& tint_col)
+		{
+			ImageDef *image = &IntImages->imageDefs[img_id];
+			Image(image, size, tint_col);
+		}
+
+		bool ImageButton(const ImageDef *image, const ImVec2& size)
+		{
+			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+					   size,
+					   ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
+						  (image->YOffset + image->Tv) * image->invTextureSize),
+					   ImVec2((image->XOffset + image->Tu + image->Width) * image->invTextureSize,
+						  (image->YOffset + image->Tv + image->Height) * image->invTextureSize));
+		}
+
+		bool ImageButton(const char* tex_name, const ImVec2& size)
+		{
+			ImageDef *image = iV_GetImage(QString(tex_name));
+			return ImageButton(image, size);
+		}
+
+		bool ImageButtonHCI(const int img_id, const ImVec2& size)
+		{
+			ImageDef *image = &IntImages->imageDefs[img_id];
+			return ImageButton(image, size);
+		}
+	}
+}
 
 /***************************GAME CODE ****************************/
 

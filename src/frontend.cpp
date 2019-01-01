@@ -125,42 +125,10 @@ namespace ImGui {
 			return ImGui::Button(label, useFullWidth);
 		}
 
-		void Image(const ImageDef *image, const ImVec2& size)
-		{
-			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
-				     size,
-				     ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
-					    (image->YOffset + image->Tv) * image->invTextureSize),
-				     ImVec2((image->XOffset + image->Width + image->Tu) * image->invTextureSize,
-					    (image->YOffset + image->Height + image->Tv) * image->invTextureSize));
-		}
-
-		void Image(const char* tex_name, const ImVec2& size)
-		{
-			ImageDef *image = iV_GetImage(QString(tex_name));
-			Image(image, size);
-		}
-
-		void ImageFE(const int fe_img_id, const ImVec2& size)
+		void ImageFE(const int fe_img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1))
 		{
 			ImageDef *image = &FrontImages->imageDefs[fe_img_id];
-			Image(image, size);
-		}
-
-		bool ImageButton(const ImageDef *image, const ImVec2& size)
-		{
-			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
-					   size,
-					   ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
-						  (image->YOffset + image->Tv) * image->invTextureSize),
-					   ImVec2((image->XOffset + image->Tu + image->Width) * image->invTextureSize,
-						  (image->YOffset + image->Tv + image->Height) * image->invTextureSize));
-		}
-
-		bool ImageButton(const char* tex_name, const ImVec2& size)
-		{
-			ImageDef *image = iV_GetImage(QString(tex_name));
-			return ImageButton(image, size);
+			Image(image, size, tint_col);
 		}
 
 		bool ImageButtonFE(const int fe_img_id, const ImVec2& size)

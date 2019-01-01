@@ -28,6 +28,7 @@
 
 #include "lib/framework/types.h"
 #include "lib/ivis_opengl/pieclip.h"
+#include "lib/ivis_opengl/ivisdef.h"
 
 #include "message.h"
 
@@ -411,5 +412,23 @@ bool isChatUp();
 bool isSecondaryWindowUp();
 
 void intOpenDebugMenu(OBJECT_TYPE id);
+
+// ////////////////////////////////////////////////////////////////////////////
+// Helper functions
+
+namespace ImGui {
+	namespace Wz {
+		void Image(const ImageDef *image, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
+		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
+
+		void ImageHCI(const int img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
+
+		bool ImageButton(const ImageDef *image, const ImVec2& size);
+		bool ImageButton(const char* tex_name, const ImVec2& size);
+
+		bool ImageButtonHCI(const int img_id, const ImVec2& size);
+	}
+}
+
 
 #endif // __INCLUDED_SRC_HCI_H__
