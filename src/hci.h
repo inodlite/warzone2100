@@ -427,6 +427,8 @@ namespace ImGui {
 		bool ImageButton(const char* tex_name, const ImVec2& size);
 
 		bool ImageButtonHCI(const int img_id, const ImVec2& size);
+
+		void SetStyleWZ();
 	}
 }
 

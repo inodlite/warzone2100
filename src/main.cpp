@@ -66,6 +66,7 @@
 #include "frontend.h"
 #include "game.h"
 #include "init.h"
+#include "hci.h"
 #include "levels.h"
 #include "lighting.h"
 #include "loadsave.h"
@@ -1349,6 +1350,9 @@ int realmain(int argc, char *argv[])
 	pie_ScreenFlip(CLEAR_BLACK);
 
 	pal_Init();
+
+	// FIXME: read from config file instead
+	ImGui::Wz::SetStyleWZ();
 
 	pie_LoadBackDrop(SCREEN_RANDOMBDROP);
 	pie_SetFogStatus(false);
