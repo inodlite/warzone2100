@@ -146,6 +146,23 @@ static BUTSTATE ReticuleEnabled[NUMRETBUTS] =  	// Reticule button enable states
 	{IDRET_COMMAND, false, false},
 };
 
+struct BUTDETAILS
+{
+	int tid;
+	uint rid;
+};
+
+static BUTDETAILS ReticuleDetails[NUMRETBUTS] =
+{
+	{IMAGE_CANCEL_UP, IDRET_CANCEL},
+	{IMAGE_MANUFACTURE_UP, IDRET_MANUFACTURE},
+	{IMAGE_RESEARCH_UP, IDRET_RESEARCH},
+	{IMAGE_BUILD_UP, IDRET_BUILD},
+	{IMAGE_DESIGN_UP, IDRET_DESIGN},
+	{IMAGE_INTELMAP_UP, IDRET_INTEL_MAP},
+	{IMAGE_COMMANDDROID_UP, IDRET_COMMAND},
+};
+
 static UDWORD	keyButtonMapping = 0;
 static bool ReticuleUp = false;
 static bool Refreshing = false;
@@ -368,7 +385,7 @@ static void processProximityButtons(UDWORD id);
 static DROID *intCheckForDroid(UDWORD droidType);
 static STRUCTURE *intCheckForStructure(UDWORD structType);
 
-static void intCheckReticuleButtons(void);
+static void intCheckReticuleButtons(bool update_widgets = true);
 
 // count the number of selected droids of a type
 static SDWORD intNumSelectedDroids(UDWORD droidType);
@@ -382,11 +399,23 @@ namespace ImGui {
 		{
 			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
 				     size,
-				     ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
-					    (image->YOffset + image->Tv) * image->invTextureSize),
-				     ImVec2((image->XOffset + image->Width + image->Tu) * image->invTextureSize,
-					    (image->YOffset + image->Height + image->Tv) * image->invTextureSize),
+				     ImVec2(image->Tu * image->invTextureSize,
+					    image->Tv * image->invTextureSize),
+				     ImVec2((image->Width + image->Tu) * image->invTextureSize,
+					    (image->Height + image->Tv) * image->invTextureSize),
 				     tint_col);
+		}
+
+		void DrawImage(const ImageDef *image, const ImVec2& pos, const ImVec2& size, const ImVec4& tint_col)
+		{
+			ImGui::GetWindowDrawList()->AddImage(
+				     reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+				     pos, ImVec2(pos.x + size.x, pos.y + size.y),
+				     ImVec2(image->Tu * image->invTextureSize,
+					    image->Tv * image->invTextureSize),
+				     ImVec2((image->Width + image->Tu) * image->invTextureSize,
+					    (image->Height + image->Tv) * image->invTextureSize),
+				     GetColorU32(tint_col));
 		}
 
 		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col)
@@ -401,26 +430,33 @@ namespace ImGui {
 			Image(image, size, tint_col);
 		}
 
-		bool ImageButton(const ImageDef *image, const ImVec2& size)
+		void DrawImageHCI(const int img_id, const ImVec2& pos, const ImVec2& size, const ImVec4& tint_col)
+		{
+			ImageDef *image = &IntImages->imageDefs[img_id];
+			DrawImage(image, pos, size, tint_col);
+		}
+
+		bool ImageButton(const ImageDef *image, const ImVec2& size, const ImVec4 &bg_col, const ImVec4 &tint_col)
 		{
 			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
 					   size,
-					   ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
-						  (image->YOffset + image->Tv) * image->invTextureSize),
-					   ImVec2((image->XOffset + image->Tu + image->Width) * image->invTextureSize,
-						  (image->YOffset + image->Tv + image->Height) * image->invTextureSize));
+					   ImVec2(image->Tu * image->invTextureSize,
+						  image->Tv * image->invTextureSize),
+					   ImVec2((image->Tu + image->Width) * image->invTextureSize,
+						  (image->Tv + image->Height) * image->invTextureSize),
+					   -1, bg_col, tint_col);
 		}
 
-		bool ImageButton(const char* tex_name, const ImVec2& size)
+		bool ImageButton(const char* tex_name, const ImVec2& size, const ImVec4 &bg_col, const ImVec4 &tint_col)
 		{
 			ImageDef *image = iV_GetImage(QString(tex_name));
-			return ImageButton(image, size);
+			return ImageButton(image, size, bg_col, tint_col);
 		}
 
-		bool ImageButtonHCI(const int img_id, const ImVec2& size)
+		bool ImageButtonHCI(const int img_id, const ImVec2& size, const ImVec4 &bg_col, const ImVec4 &tint_col)
 		{
 			ImageDef *image = &IntImages->imageDefs[img_id];
-			return ImageButton(image, size);
+			return ImageButton(image, size, bg_col, tint_col);
 		}
 
 		struct ImVec3 { float x, y, z; ImVec3(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f) { x = _x; y = _y; z = _z; } };
@@ -556,6 +592,65 @@ namespace ImGui {
 
 				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
 					    1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+				if (ImGui::CollapsingHeader("Texture view (IntImages)"))
+				{
+					static size_t pageid = 0;
+					auto pages = IntImages->pages;
+
+					ImGui::PushID("tex");
+
+					ImGui::Text("Page");
+					ImGui::SameLine();
+					if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+					{
+						if (pageid == 0)
+							pageid = pages.size() - 1;
+						else
+							--pageid;
+					}
+					ImGui::SameLine();
+					if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+					{
+						if (pageid == pages.size() - 1)
+							pageid = 0;
+						else
+							++pageid;
+					}
+					ImGui::SameLine();
+
+					ImTextureID my_tex_id = reinterpret_cast<ImTextureID>(pie_Texture(pages[pageid].id));
+					float my_tex_w = (float)pages[pageid].size;
+					float my_tex_h = (float)pages[pageid].size;
+
+					ImGui::Text("%lu (%.0fx%.0f)", pageid, my_tex_w, my_tex_h);
+					ImVec2 pos = ImGui::GetCursorScreenPos();
+					ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), ImVec2(0,0), ImVec2(1,1),
+						     ImColor(255,255,255,255), ImColor(255,255,255,128));
+					if (ImGui::IsItemHovered())
+					{
+						ImGuiIO& io = ImGui::GetIO();
+
+						ImGui::BeginTooltip();
+						float region_sz = 32.0f;
+						float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
+						if (region_x < 0.0f) region_x = 0.0f;
+						else if (region_x > my_tex_w - region_sz) region_x = my_tex_w - region_sz;
+						float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+						if (region_y < 0.0f) region_y = 0.0f;
+						else if (region_y > my_tex_h - region_sz) region_y = my_tex_h - region_sz;
+						float zoom = 4.0f;
+						ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+						ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+						ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+						ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+						ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom),
+							     uv0, uv1, ImColor(255,255,255,255), ImColor(255,255,255,128));
+						ImGui::EndTooltip();
+					}
+
+					ImGui::PopID();
+				}
 			}
 			ImGui::End();
 
@@ -565,6 +660,8 @@ namespace ImGui {
 		}
 	}
 }
+
+uint doReticuleForm();
 
 /***************************GAME CODE ****************************/
 
@@ -1325,6 +1422,15 @@ INT_RETVAL intRunWidgets(void)
 	{
 		if (getDebugMappingStatus())
 		    ImGui::Wz::doDeveloperUI();
+
+		if (ReticuleUp)
+		{
+			if (!bInTutorial)
+				intCheckReticuleButtons(true);
+			uint click_id = doReticuleForm();
+			if (click_id != 0)
+				retIDs.push_back(click_id);
+		}
 
 		WidgetTriggers const &triggers = widgRunScreen(psWScreen);
 		for (WidgetTriggers::const_iterator trigger = triggers.begin(); trigger != triggers.end(); ++trigger)
@@ -2547,6 +2653,107 @@ static void intStopStructPosition(void)
 	kill3DBuilding();
 }
 
+uint doReticuleForm()
+{
+	ImGuiIO& io = ImGui::GetIO();
+	uint click_id = 0;
+
+	ImGui::SetNextWindowPos(ImVec2(RET_X * 2 + RET_FORMWIDTH, io.DisplaySize.y - RET_X),
+				ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+
+	ImGui::Begin("Reticule", nullptr, ImGuiWindowFlags_NoDecoration |
+		     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove);
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		ImVec2 frame_padding = style.FramePadding;
+		bool is_flash_time = (((realTime / 250) % 2) != 0);
+		const static ImVec4 but_col(0, 0, 0, 0);
+		ImVec4 flash_tint(1, 1, 1, 1);
+
+		static const ImVec2 ret_btn_sz(iV_GetImageWidth(IntImages, IMAGE_BUILD_UP),
+					       iV_GetImageHeight(IntImages, IMAGE_BUILD_UP));
+
+		for (int i = 1; i < NUMRETBUTS; i++)
+		{
+			ImGui::PushID(i);
+
+			if (ReticuleEnabled[i].Enabled)
+			{
+				if (retbutstats[i].flashing && is_flash_time)
+					flash_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
+				else
+					flash_tint = ImVec4(1, 1, 1, 1);
+
+				if (ImGui::Wz::ImageButtonHCI(ReticuleDetails[i].tid, ret_btn_sz, but_col, flash_tint))
+					click_id = ReticuleDetails[i].rid;
+			}
+			else
+			{
+				ImVec2 pos = ImGui::GetCursorScreenPos();
+				ImGui::Dummy(ImVec2(ret_btn_sz.x + frame_padding.x * 2, ret_btn_sz.y + frame_padding.y * 2));
+				ImGui::Wz::DrawImageHCI(IMAGE_RETICULE_GREY,
+							ImVec2(pos.x + frame_padding.x, pos.y + frame_padding.y),
+							ret_btn_sz);
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text("%s", retbutstats[i].tip.toUtf8().constData());
+				ImGui::EndTooltip();
+			}
+
+			if (i % 3 != 0)
+				ImGui::SameLine();
+
+			ImGui::PopID();
+		}
+
+		// Put close button in last row, as there are other ways to close forms
+		{
+			static int ret_close_idx = 0;
+			ImGui::PushID(ret_close_idx);
+
+			ImVec2 pos = ImGui::GetCursorScreenPos();
+			ImVec2 btn_sz = ImVec2((ret_btn_sz.x + frame_padding.x * 2) * 3 + style.ItemSpacing.x * 2,
+					       (ret_btn_sz.y + frame_padding.y * 2));
+			int cancel_img;
+
+			flash_tint = ImVec4(1, 1, 1, 1);
+
+			if (ReticuleEnabled[ret_close_idx].Enabled)
+			{
+				cancel_img = IMAGE_CANCEL_UP;
+				if (retbutstats[ret_close_idx].flashing && is_flash_time)
+					flash_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
+				if (ImGui::Button("##close", btn_sz))
+					click_id = ReticuleDetails[ret_close_idx].rid;
+			}
+			else
+			{
+				cancel_img = IMAGE_RETICULE_GREY;
+				ImGui::Dummy(btn_sz);
+			}
+
+			ImGui::Wz::DrawImageHCI(cancel_img,
+						ImVec2(pos.x + btn_sz.x / 2 - ret_btn_sz.x / 2,
+						       pos.y + btn_sz.y / 2 - ret_btn_sz.y / 2),
+						ret_btn_sz, flash_tint);
+
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text("%s", retbutstats[ret_close_idx].tip.toUtf8().constData());
+				ImGui::EndTooltip();
+			}
+
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::End();
+
+	return click_id;
+}
 
 /* Display the widgets for the in game interface */
 void intDisplayWidgets(void)
@@ -4716,7 +4923,7 @@ static SDWORD intNumSelectedDroids(UDWORD droidType)
 // Check that each reticule button has the structure or droid required for it and
 // enable/disable accordingly.
 //
-void intCheckReticuleButtons(void)
+void intCheckReticuleButtons(bool update_widgets)
 {
 	STRUCTURE	*psStruct;
 	DROID	*psDroid;
@@ -4770,6 +4977,9 @@ void intCheckReticuleButtons(void)
 			break;
 		}
 	}
+
+	if (!update_widgets)
+		return;
 
 	for (int i = 0; i < NUMRETBUTS; i++)
 	{

@@ -403,13 +403,14 @@ namespace ImGui {
 	namespace Wz {
 		void Image(const ImageDef *image, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
 		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
-
 		void ImageHCI(const int img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
 
-		bool ImageButton(const ImageDef *image, const ImVec2& size);
-		bool ImageButton(const char* tex_name, const ImVec2& size);
+		void DrawImage(const ImageDef *image, const ImVec2& pos, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
+		void DrawImageHCI(const int img_id, const ImVec2& pos, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
 
-		bool ImageButtonHCI(const int img_id, const ImVec2& size);
+		bool ImageButton(const ImageDef *image, const ImVec2& size, const ImVec4& bg_col = ImVec4(0,0,0,0), const ImVec4& tint_col = ImVec4(1,1,1,1));
+		bool ImageButton(const char* tex_name, const ImVec2& size, const ImVec4& bg_col = ImVec4(0,0,0,0), const ImVec4& tint_col = ImVec4(1,1,1,1));
+		bool ImageButtonHCI(const int img_id, const ImVec2& size, const ImVec4& bg_col = ImVec4(0,0,0,0), const ImVec4& tint_col = ImVec4(1,1,1,1));
 
 		void SetStyleWZ();
 	}
