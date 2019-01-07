@@ -661,7 +661,7 @@ namespace ImGui {
 	}
 }
 
-uint doReticuleForm();
+uint hciDoReticuleForm();
 
 /***************************GAME CODE ****************************/
 
@@ -1427,7 +1427,7 @@ INT_RETVAL intRunWidgets(void)
 		{
 			if (!bInTutorial)
 				intCheckReticuleButtons(true);
-			uint click_id = doReticuleForm();
+			uint click_id = hciDoReticuleForm();
 			if (click_id != 0)
 				retIDs.push_back(click_id);
 		}
@@ -2653,7 +2653,7 @@ static void intStopStructPosition(void)
 	kill3DBuilding();
 }
 
-uint doReticuleForm()
+uint hciDoReticuleForm()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	uint click_id = 0;
