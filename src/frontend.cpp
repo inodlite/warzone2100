@@ -116,9 +116,6 @@ namespace ImGui {
 	namespace Wz {
 		const ImVec2 useFullWidth(-1, 0);
 
-		ImGuiWindowFlags titleWindowFlags = ImGuiWindowFlags_NoTitleBar |
-				ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
-
 		bool ButtonFW(const char* label)
 		{
 			return ImGui::Button(label, useFullWidth);
@@ -161,7 +158,7 @@ namespace ImGui {
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
-			ImGui::Begin("TitleMenuTop", nullptr, ImGui::Wz::titleWindowFlags | ImGuiWindowFlags_NoScrollbar);
+			ImGui::Begin("TitleMenuTop", nullptr, ImGui::Wz::StaticWindowFlags | ImGuiWindowFlags_NoScrollbar);
 			{
 				int imgW = iV_GetImageWidth(FrontImages, IMAGE_FE_LOGO);
 				int imgH = iV_GetImageHeight(FrontImages, IMAGE_FE_LOGO);
@@ -202,7 +199,7 @@ namespace ImGui {
 			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - (HIDDEN_FRONTEND_WIDTH * 0.5f) + FRONTEND_BOTFORMX,
 						       io.DisplaySize.y * 0.5f - (HIDDEN_FRONTEND_HEIGHT * 0.5f) + FRONTEND_BOTFORMY));
 			ImGui::SetNextWindowSize(ImVec2(FRONTEND_BOTFORMW, FRONTEND_BOTFORMH));
-			ImGui::Begin("TitleMenuBottom", nullptr, ImGui::Wz::titleWindowFlags);
+			ImGui::Begin("TitleMenuBottom", nullptr, ImGui::Wz::StaticWindowFlags);
 
 			ImVec2 windowSize = ImGui::GetWindowSize();
 
@@ -234,7 +231,6 @@ namespace ImGui {
 				bottom_fn();
 
 			ImGui::End();
-
 		}
 
 		template<tMode MODE> void TitleFormSimpleReturnFn()

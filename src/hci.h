@@ -401,6 +401,10 @@ void intOpenDebugMenu(OBJECT_TYPE id);
 
 namespace ImGui {
 	namespace Wz {
+		const ImGuiWindowFlags StaticWindowFlags = ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoSavedSettings;
+
 		void Image(const ImageDef *image, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
 		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
 		void ImageHCI(const int img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1));
