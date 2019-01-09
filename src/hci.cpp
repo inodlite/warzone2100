@@ -2675,7 +2675,7 @@ uint hciDoReticuleForm()
 		ImVec2 frame_padding = style.FramePadding;
 		bool is_flash_time = (((realTime / 250) % 2) != 0);
 		const static ImVec4 but_col(0, 0, 0, 0);
-		ImVec4 flash_tint(1, 1, 1, 1);
+		ImVec4 btn_tint;
 
 		static const ImVec2 ret_btn_sz(iV_GetImageWidth(IntImages, IMAGE_BUILD_UP),
 					       iV_GetImageHeight(IntImages, IMAGE_BUILD_UP));
@@ -2686,13 +2686,14 @@ uint hciDoReticuleForm()
 
 			if (ReticuleEnabled[i].Enabled)
 			{
+				btn_tint = ImVec4(1, 1, 1, 1);
 				if (retbutstats[i].flashing && is_flash_time)
-					flash_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
-				else
-					flash_tint = ImVec4(1, 1, 1, 1);
-
-				if (ImGui::Wz::ImageButtonHCI(ReticuleDetails[i].tid, ret_btn_sz, but_col, flash_tint))
+					btn_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
+				if (ImGui::Wz::ImageButtonHCI(ReticuleDetails[i].tid, ret_btn_sz, but_col, btn_tint))
+				{
 					click_id = ReticuleDetails[i].rid;
+					retbutstats[i].flashing = false;
+				}
 			}
 			else
 			{
@@ -2725,15 +2726,18 @@ uint hciDoReticuleForm()
 					       (ret_btn_sz.y + frame_padding.y * 2));
 			int cancel_img;
 
-			flash_tint = ImVec4(1, 1, 1, 1);
+			btn_tint = ImVec4(1, 1, 1, 1);
 
 			if (ReticuleEnabled[ret_close_idx].Enabled)
 			{
 				cancel_img = IMAGE_CANCEL_UP;
 				if (retbutstats[ret_close_idx].flashing && is_flash_time)
-					flash_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
+					btn_tint = ImVec4(0.5f, 0.5f, 0.5f, 1);
 				if (ImGui::Button("##close", btn_sz))
+				{
 					click_id = ReticuleDetails[ret_close_idx].rid;
+					retbutstats[ret_close_idx].flashing = false;
+				}
 			}
 			else
 			{
@@ -2744,7 +2748,7 @@ uint hciDoReticuleForm()
 			ImGui::Wz::DrawImageHCI(cancel_img,
 						ImVec2(pos.x + btn_sz.x / 2 - ret_btn_sz.x / 2,
 						       pos.y + btn_sz.y / 2 - ret_btn_sz.y / 2),
-						ret_btn_sz, flash_tint);
+						ret_btn_sz, btn_tint);
 
 			if (ImGui::IsItemHovered())
 			{
