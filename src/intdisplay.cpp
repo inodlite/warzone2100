@@ -670,6 +670,112 @@ void intDisplayPowerBar(WIDGET *psWidget, UDWORD xOffset, UDWORD yOffset)
 	iV_DrawText(szVal, iX, iY, font_regular);
 }
 
+void intDoPowerBarForm()
+{
+	ImGuiIO& io = ImGui::GetIO();
+	ImGuiStyle& style = ImGui::GetStyle();
+	float scale = io.FontGlobalScale;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(10.0f, 10.0f));
+	ImGui::PushFont(fontTiny);
+
+	/*static*/ ImVec2 max_text_sz = ImGui::CalcTextSize("00000 ");
+
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, OBJ_BACKY - 5/*io.DisplaySize.y * 0.95f*/),
+				ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+	ImGui::SetNextWindowSize(ImVec2(POW_BARWIDTH * scale,
+					max_text_sz.y + style.FramePadding.y * 2));
+
+	if (ImGui::Begin("##PowerBarForm", nullptr, ImGui::Wz::StaticWindowFlags |
+			 ImGuiWindowFlags_NoScrollbar))
+	{
+		SDWORD Avail, ManPow, realPower, barWidth;
+		static char szVal[8];
+		double desiredPower = getPowerMinusQueued(selectedPlayer);
+		static double displayPower;
+		static unsigned lastRealTime;
+		static double epsDisplayPower;
+
+		ImVec2 windowSize = ImGui::GetWindowSize();
+		ImVec2 pos = ImGui::GetWindowPos();
+
+		barWidth = windowSize.x - style.FramePadding.x * 2 - max_text_sz.x;
+
+		displayPower = desiredPower + (displayPower - desiredPower) * exp((realTime - lastRealTime) / -80.); // If realTime < lastRealTime, then exp() returns 0 due to unsigned overflow.
+		lastRealTime = realTime;
+		ManPow = ManuPower / POWERBAR_SCALE;
+		epsDisplayPower = displayPower + 1e-8;
+		Avail = epsDisplayPower / POWERBAR_SCALE;
+		realPower = epsDisplayPower - ManuPower;
+
+		sprintf(szVal, "%d", realPower);
+
+		if (Avail > barWidth)
+		{
+			ManPow = PERNUM(barWidth, ManPow, Avail);
+			Avail = barWidth;
+		}
+
+		if (ManPow > barWidth)
+		{
+			ManPow = barWidth;
+			Avail = 0;
+		}
+
+		static const ImU32 col_red = ImGui::GetColorU32(IM_COL32(255, 35, 0, 255));
+		static const ImU32 col_green = ImGui::GetColorU32(IM_COL32(55, 239, 11, 255));
+		ImU32 bar_col;
+		ImU32 text_col = ImGui::GetColorU32(ImGuiCol_Text);
+		if (Avail < 0)
+			text_col = col_red;
+
+		ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + style.FramePadding.x,
+							   pos.y + style.FramePadding.y),
+						    text_col, szVal);
+
+		const ImVec2 bar_pos(pos.x + style.FramePadding.x + max_text_sz.x,
+					pos.y + style.FramePadding.y);
+
+		//draw the available section if any!
+		if (Avail > 0)
+		{
+			bar_col = ImGui::GetColorU32(ImGuiCol_PlotHistogram);
+			ImGui::GetWindowDrawList()->AddRectFilled(bar_pos,
+							  ImVec2(bar_pos.x + Avail * scale,
+								 pos.y + windowSize.y - style.FramePadding.y),
+							  bar_col);
+		}
+
+		//draw required section
+		if (ManPow != 0)
+		{
+			if (ManPow > Avail)
+				bar_col = col_red;
+			else
+				bar_col = col_green;
+			ImGui::GetWindowDrawList()->AddRectFilled(bar_pos,
+								  ImVec2(bar_pos.x + ManPow * scale,
+									 pos.y + windowSize.y - style.FramePadding.y),
+								  bar_col);
+		}
+
+		if (Avail < 0)
+		{
+			const char *need = _("Need more resources!");
+			// it was set to red earlier, so just change it once in a while
+			if ((realTime / 1250) % 5 == 0)
+				text_col = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+			ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + style.FramePadding.x + max_text_sz.x,
+								   pos.y + style.FramePadding.y),
+							    text_col, need);
+		}
+	}
+	ImGui::End();
+
+	ImGui::PopFont();
+	ImGui::PopStyleVar(1);	
+}
+
 IntFancyButton::IntFancyButton(WIDGET *parent)
 	: W_CLICKFORM(parent)
 	, buttonType(TOPBUTTON)

@@ -1491,6 +1491,11 @@ bool wzMainScreenSetup(int antialiasing, bool fullscreen, bool vsync)
 			ImFontConfig font_cfg = ImFontConfig();
 			font_cfg.FontDataOwnedByAtlas = false;
 			fontRegular = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 16.0f, &font_cfg);
+
+			font_cfg = ImFontConfig();
+			font_cfg.FontDataOwnedByAtlas = false;
+			fontTiny = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 12.0f, &font_cfg);
+
 			free(realFileData);
 		}
 		else
@@ -1509,7 +1514,7 @@ bool wzMainScreenSetup(int antialiasing, bool fullscreen, bool vsync)
 		}
 		else
 		{
-			debug(LOG_FATAL, "Failed to load big font");
+			debug(LOG_FATAL, "Failed to load bold font");
 			SDL_Quit();
 			exit(EXIT_FAILURE);
 		}

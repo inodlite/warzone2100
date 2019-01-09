@@ -96,6 +96,11 @@ static bool SecondaryWindowUp = false;
 // Chat dialog
 static bool ChatDialogUp = false;
 
+struct HCISTATUSHOLDER {
+	bool IsPowerBarUp;
+};
+static HCISTATUSHOLDER hciStatus;
+
 #define RETXOFFSET (0)// Reticule button offset
 #define RETYOFFSET (0)
 #define NUMRETBUTS	7 // Number of reticule buttons.
@@ -1065,6 +1070,7 @@ void intHidePowerBar()
 		{
 			widgHide(psWScreen, IDPOW_POWERBAR_T);
 		}
+		hciStatus.IsPowerBarUp = false;
 	}
 }
 
@@ -1459,6 +1465,8 @@ INT_RETVAL intRunWidgets(void)
 	if (powerBarUp)
 	{
 		intRunPower();
+		if (hciStatus.IsPowerBarUp)
+			intDoPowerBarForm();
 	}
 
 	if (StatsUp)
@@ -1930,7 +1938,6 @@ static void intRunPower(void)
 		intSetShadowPower(0);
 	}
 }
-
 
 // Process stats screen.
 static void intRunStats(void)
@@ -4744,6 +4751,7 @@ void intShowPowerBar(void)
 	{
 		widgReveal(psWScreen, IDPOW_POWERBAR_T);
 	}
+	hciStatus.IsPowerBarUp = true;
 }
 
 //hides the power bar from the display - regardless of what player requested!
@@ -4753,8 +4761,8 @@ void forceHidePowerBar(void)
 	{
 		widgHide(psWScreen, IDPOW_POWERBAR_T);
 	}
+	hciStatus.IsPowerBarUp = false;
 }
-
 
 /* Add the Proximity message buttons */
 bool intAddProximityButton(PROXIMITY_DISPLAY *psProxDisp, UDWORD inc)

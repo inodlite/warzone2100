@@ -34,6 +34,7 @@
 #include "input.h"
 
 bool use_wzwidgets = false;
+ImFont* fontTiny = nullptr;
 ImFont* fontRegular = nullptr;
 ImFont* fontBig = nullptr;
 

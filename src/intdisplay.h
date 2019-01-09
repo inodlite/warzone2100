@@ -117,6 +117,7 @@ extern void intAddFactoryInc(WIDGET *psWidget, W_CONTEXT *psContext);
 extern void intAddProdQuantity(WIDGET *psWidget, W_CONTEXT *psContext);
 
 void intDisplayPowerBar(WIDGET *psWidget, UDWORD xOffset, UDWORD yOffset);
+void intDoPowerBarForm();
 
 class IntFancyButton : public W_CLICKFORM
 {

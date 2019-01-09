@@ -64,6 +64,7 @@
 #define CONCAT(x, y) REALCONCAT(x, y)
 
 extern bool use_wzwidgets;      ///< Controls which UI framework to use
+extern ImFont* fontTiny;
 extern ImFont* fontRegular;
 extern ImFont* fontBig;
 
