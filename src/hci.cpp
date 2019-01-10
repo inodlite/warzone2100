@@ -2669,7 +2669,8 @@ uint hciDoReticuleForm()
 				ImGuiCond_Always, ImVec2(0.0f, 1.0f));
 
 	ImGui::Begin("Reticule", nullptr, ImGuiWindowFlags_NoDecoration |
-		     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove);
+		     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
+		     ImGuiWindowFlags_AlwaysAutoResize);
 	{
 		ImGuiStyle& style = ImGui::GetStyle();
 		ImVec2 frame_padding = style.FramePadding;
@@ -2677,8 +2678,8 @@ uint hciDoReticuleForm()
 		const static ImVec4 but_col(0, 0, 0, 0);
 		ImVec4 btn_tint;
 
-		static const ImVec2 ret_btn_sz(iV_GetImageWidth(IntImages, IMAGE_BUILD_UP),
-					       iV_GetImageHeight(IntImages, IMAGE_BUILD_UP));
+		const ImVec2 ret_btn_sz(iV_GetImageWidth(IntImages, IMAGE_BUILD_UP) * io.FontGlobalScale,
+					iV_GetImageHeight(IntImages, IMAGE_BUILD_UP) * io.FontGlobalScale);
 
 		for (int i = 1; i < NUMRETBUTS; i++)
 		{
