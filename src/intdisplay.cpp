@@ -735,14 +735,14 @@ void intDoPowerBarForm()
 
 		const ImVec2 bar_pos(pos.x + style.FramePadding.x + max_text_sz.x,
 					pos.y + style.FramePadding.y);
+		const float bar_end_pos_y = pos.y + windowSize.y - style.FramePadding.y;
 
 		//draw the available section if any!
 		if (Avail > 0)
 		{
 			bar_col = ImGui::GetColorU32(ImGuiCol_PlotHistogram);
 			ImGui::GetWindowDrawList()->AddRectFilled(bar_pos,
-							  ImVec2(bar_pos.x + Avail * scale,
-								 pos.y + windowSize.y - style.FramePadding.y),
+							  ImVec2(bar_pos.x + Avail * scale, bar_end_pos_y),
 							  bar_col);
 		}
 
@@ -754,8 +754,7 @@ void intDoPowerBarForm()
 			else
 				bar_col = col_green;
 			ImGui::GetWindowDrawList()->AddRectFilled(bar_pos,
-								  ImVec2(bar_pos.x + ManPow * scale,
-									 pos.y + windowSize.y - style.FramePadding.y),
+								  ImVec2(bar_pos.x + ManPow * scale, bar_end_pos_y),
 								  bar_col);
 		}
 
