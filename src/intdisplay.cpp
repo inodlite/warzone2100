@@ -684,7 +684,7 @@ void intDoPowerBarForm()
 	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, OBJ_BACKY - 5/*io.DisplaySize.y * 0.95f*/),
 				ImGuiCond_Always, ImVec2(0.5f, 1.0f));
 	ImGui::SetNextWindowSize(ImVec2(POW_BARWIDTH * scale,
-					max_text_sz.y + style.FramePadding.y * 2));
+					max_text_sz.y + style.WindowPadding.y));
 
 	if (ImGui::Begin("##PowerBarForm", nullptr, ImGui::Wz::StaticWindowFlags |
 			 ImGuiWindowFlags_NoScrollbar))
@@ -697,9 +697,13 @@ void intDoPowerBarForm()
 		static double epsDisplayPower;
 
 		ImVec2 windowSize = ImGui::GetWindowSize();
+		windowSize = ImVec2(windowSize.x - style.WindowPadding.x,
+				    windowSize.y - style.WindowPadding.y);
 		ImVec2 pos = ImGui::GetWindowPos();
+		pos = ImVec2(pos.x + style.WindowPadding.x * 0.5f,
+			     pos.y + style.WindowPadding.y * 0.5f);
 
-		barWidth = windowSize.x - style.FramePadding.x * 2 - max_text_sz.x;
+		barWidth = windowSize.x - max_text_sz.x;
 
 		displayPower = desiredPower + (displayPower - desiredPower) * exp((realTime - lastRealTime) / -80.); // If realTime < lastRealTime, then exp() returns 0 due to unsigned overflow.
 		lastRealTime = realTime;
@@ -729,13 +733,10 @@ void intDoPowerBarForm()
 		if (Avail < 0)
 			text_col = col_red;
 
-		ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + style.FramePadding.x,
-							   pos.y + style.FramePadding.y),
-						    text_col, szVal);
+		ImGui::GetWindowDrawList()->AddText(pos, text_col, szVal);
 
-		const ImVec2 bar_pos(pos.x + style.FramePadding.x + max_text_sz.x,
-					pos.y + style.FramePadding.y);
-		const float bar_end_pos_y = pos.y + windowSize.y - style.FramePadding.y;
+		const ImVec2 bar_pos(pos.x + max_text_sz.x, pos.y);
+		const float bar_end_pos_y = pos.y + windowSize.y;
 
 		//draw the available section if any!
 		if (Avail > 0)
@@ -764,9 +765,7 @@ void intDoPowerBarForm()
 			// it was set to red earlier, so just change it once in a while
 			if ((realTime / 1250) % 5 == 0)
 				text_col = ImGui::GetColorU32(ImGuiCol_TextDisabled);
-			ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + style.FramePadding.x + max_text_sz.x,
-								   pos.y + style.FramePadding.y),
-							    text_col, need);
+			ImGui::GetWindowDrawList()->AddText(bar_pos, text_col, need);
 		}
 	}
 	ImGui::End();
