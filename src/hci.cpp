@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <memory>
 
 #include "lib/framework/frame.h"
 #include "lib/framework/stdio_ext.h"
@@ -54,6 +55,7 @@
 #include "lib/widget/editbox.h"
 #include "cheat.h"
 #include "console.h"
+#include "component.h"
 #include "design.h"
 #include "display.h"
 #include "display3d.h"
@@ -98,6 +100,7 @@ static bool ChatDialogUp = false;
 
 struct HCISTATUSHOLDER {
 	bool IsPowerBarUp;
+	bool IsObjectFormUp;
 };
 static HCISTATUSHOLDER hciStatus;
 
@@ -309,6 +312,7 @@ COMPONENT_STATS	**apsExtraSysList;
 
 // store the objects that are being used for the object bar
 static std::vector<BASE_OBJECT *> apsObjectList;
+static std::vector<std::unique_ptr<IntButtonForResearch> > objReseachButtonVec;
 
 /* Flags to check whether the power bars are currently on the screen */
 static bool				powerBarUp = false;
@@ -464,6 +468,25 @@ namespace ImGui {
 			return ImageButton(image, size, bg_col, tint_col);
 		}
 
+		void AddPBarForObjectButton(const ImVec2& but_sz, const float& progress)
+		{
+			if (progress == 0.0)
+				return;
+
+			static const float pbar_pad = 5.0f;
+			const float pbar_act_pad = pbar_pad * ImGui::GetIO().FontGlobalScale;
+
+			float _progress = std::min(progress, 1.f);
+
+			ImVec2 tmp_pos = ImGui::GetWindowPos();
+			tmp_pos.x += pbar_act_pad;
+			tmp_pos.y += but_sz.y - 2.0f * pbar_act_pad;
+			ImGui::GetWindowDrawList()->AddRectFilled(tmp_pos,
+								  ImVec2(tmp_pos.x + (but_sz.x - 2.0f * pbar_act_pad) * _progress,
+									 tmp_pos.y + pbar_act_pad),
+								  ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+		}
+
 		struct ImVec3 { float x, y, z; ImVec3(float _x = 0.0f, float _y = 0.0f, float _z = 0.0f) { x = _x; y = _y; z = _z; } };
 
 		void ApplyEasyTheming(ImVec3 color_for_text, ImVec3 color_for_head, ImVec3 color_for_area,
@@ -592,6 +615,9 @@ namespace ImGui {
 				}
 
 				doStyleSelector("StyleSelector");
+
+				ImGui::DragFloat("Global Font Scale##Slider", &ImGui::GetIO().FontGlobalScale,
+						 0.005f, 0.3f, 2.0f, "%.1f");
 
 				ImGui::Checkbox("ImGui Demo Window", &show_demo_window);
 
@@ -824,6 +850,7 @@ bool intInitialise(void)
 
 	// allocate the object list
 	apsObjectList.clear();
+	objReseachButtonVec.clear();
 
 	psObjSelected = nullptr;
 
@@ -895,6 +922,7 @@ void interfaceShutDown(void)
 	free(apsComponentList);
 	free(apsExtraSysList);
 	apsObjectList.clear();
+	objReseachButtonVec.clear();
 	psObjSelected = nullptr;
 
 	psWScreen = NULL;
@@ -1092,6 +1120,8 @@ void intResetScreen(bool NoAnim)
 		widgSetButtonState(psWScreen, IDRET_RESEARCH, 0);
 		widgSetButtonState(psWScreen, IDRET_DESIGN, 0);
 	}
+
+	// Should we clear whole hciStatus instead of piece by piece?
 
 	/* Remove whatever extra screen was displayed */
 	switch (intMode)
@@ -2631,6 +2661,7 @@ void intConstructorSelected(DROID *psDroid)
 	setWidgetsStatus(true);
 	intAddBuild(psDroid);
 	widgHide(psWScreen, IDOBJ_FORM);
+	hciStatus.IsObjectFormUp = false;
 }
 
 // add the construction interface if a constructor droid is selected
@@ -2639,6 +2670,7 @@ void intCommanderSelected(DROID *psDroid)
 	setWidgetsStatus(true);
 	intAddCommand(psDroid);
 	widgHide(psWScreen, IDOBJ_FORM);
+	hciStatus.IsObjectFormUp = false;
 }
 
 /* Start looking for a structure location */
@@ -2659,6 +2691,68 @@ static void intStopStructPosition(void)
 	}
 	kill3DBuilding();
 }
+
+class wzRenderingWrapper
+{
+	GLint last_texture;
+	GLint last_program;
+	GLboolean last_enable_blend;
+	GLboolean last_enable_scissor_test;
+	GLboolean last_enable_depth_test;
+
+	void PushRenderState()
+	{
+		glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+		glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
+		last_enable_blend = glIsEnabled(GL_BLEND);
+		last_enable_scissor_test = glIsEnabled(GL_SCISSOR_TEST);
+		last_enable_depth_test = glIsEnabled(GL_DEPTH_TEST);
+		glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+	}
+
+	void PopRenderState()
+	{
+		glPopClientAttrib();
+
+		if (last_enable_depth_test)
+			glEnable(GL_DEPTH_TEST);
+		else
+			glDisable(GL_DEPTH_TEST);
+
+		if (last_enable_scissor_test)
+			glEnable(GL_SCISSOR_TEST);
+		else
+			glDisable(GL_SCISSOR_TEST);
+
+		glBindTexture(GL_TEXTURE_2D, last_texture);
+		// Nudge WZ to invalidate texture binding
+		pie_SetTexturePage(TEXPAGE_EXTERN);
+
+		glUseProgram(last_program);
+
+		if (last_enable_blend)
+			glEnable(GL_BLEND);
+		else
+			glDisable(GL_BLEND);
+
+		// Nudge WZ to invalidate render mode
+		pie_SetRendMode(REND_DUMMY);
+	}
+
+public:
+	wzRenderingWrapper() {PushRenderState();};
+	~wzRenderingWrapper() {PopRenderState();};
+};
+
+struct strWzRender
+{
+	static void cbDrawResearchButton(const ImDrawList*, const ImDrawCmd* cmd)
+	{
+		wzRenderingWrapper old_state;
+		IntButtonForResearch* resbtn = static_cast<IntButtonForResearch*>(cmd->UserCallbackData);
+		resbtn->doDrawing();
+	}
+};
 
 uint hciDoReticuleForm()
 {
@@ -2796,6 +2890,187 @@ void intDisplayWidgets(void)
 	if (bLoadSaveUp)
 	{
 		displayLoadSave();
+	}
+
+	// Object form
+	if (!use_wzwidgets && hciStatus.IsObjectFormUp)
+	{
+		BASE_STATS		*lclStats;
+		DROID			*lclDroid;
+		STRUCTURE		*lclStructure;
+		RESEARCH		*lclResearchTopic;
+		int			lclCompIndex;
+		bool			lclIsFactory;
+		bool			lclIsResearch;
+
+		const ImGuiIO& io = ImGui::GetIO();
+		const ImGuiStyle& style = ImGui::GetStyle();
+		const float scale = io.FontGlobalScale;
+
+		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, OBJ_BACKY - 35 * scale/*io.DisplaySize.y * 0.65f*/),
+					ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+		ImGui::SetNextWindowSize(ImVec2(OBJ_BACKWIDTH * scale,
+						(OBJ_BACKHEIGHT + 20) * scale));
+
+		if (ImGui::Begin("##ObjectForm", &hciStatus.IsObjectFormUp,
+				 ImGui::Wz::StaticWindowFlags | ImGuiWindowFlags_HorizontalScrollbar))
+		{
+			ImVec2 but_sz(0, (ImGui::GetWindowSize().y - style.ScrollbarSize -
+					  style.WindowPadding.y * 2 - style.ItemSpacing.y) * 0.5f);
+			but_sz.x = but_sz.y * 1.3333f;
+
+			for (unsigned i = 0; i < apsObjectList.size(); ++i)
+			{
+				BASE_OBJECT *lclObj = apsObjectList[i];
+				if (lclObj->died != 0)
+				{
+				       continue; // Don't add the button if the objects dead.
+				}
+
+				/* Got an object - set the text and tip for the button */
+				switch (lclObj->type)
+				{
+				case OBJ_DROID:
+					lclDroid = (DROID *)lclObj;
+					lclStats = objGetStatsFunc(lclObj);
+
+					ImGui::BeginGroup();
+					ImGui::PushID(lclDroid->id);
+
+					if (ImGui::BeginChild("droid_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					{
+						ImGui::Button("", but_sz);
+
+					}
+					ImGui::EndChild();
+					if ((lclStats != NULL) && ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("%s", getName(lclStats));
+						ImGui::EndTooltip();
+					}
+
+					if (ImGui::BeginChild("droid_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					{
+						ImGui::Button("", but_sz);
+
+						if (lclDroid->droidType == DROID_CONSTRUCT ||
+							lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
+						{
+							lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
+							ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
+							ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
+								lclCompIndex, numConstructStats);
+							lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
+
+							float frac = (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
+										      lclDroid->player) / WBAR_SCALE;
+							ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
+						}
+					}
+					ImGui::EndChild();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("%s", droidGetName(lclDroid));
+						ImGui::EndTooltip();
+					}
+
+					ImGui::PopID();
+					ImGui::EndGroup();
+					ImGui::SameLine();
+
+					break;
+
+				case OBJ_STRUCTURE:
+					lclStructure = (STRUCTURE *)lclObj;
+					lclIsFactory = false;
+					lclIsResearch = false;
+
+					switch (lclStructure->pStructureType->type)
+					{
+					case REF_FACTORY:
+					case REF_CYBORG_FACTORY:
+					case REF_VTOL_FACTORY:
+					       lclIsFactory = true;
+					       break;
+					case REF_RESEARCH:
+					       lclIsResearch = true;
+					       lclResearchTopic = ((RESEARCH_FACILITY *)lclStructure->pFunctionality)->psSubject;
+					       break;
+					default:
+					       ASSERT(false, "Invalid structure type");
+					}
+
+					ImGui::BeginGroup();
+					ImGui::PushID(lclStructure->id);
+
+					if (ImGui::BeginChild("struct_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					{
+						ImGui::Button("", but_sz);
+
+						if (lclIsResearch)
+						{
+							IntButtonForResearch* btn = objReseachButtonVec[i].get();
+							ImVec2 cur_pos = ImGui::GetWindowPos();
+							btn->updateTopic(lclResearchTopic);
+							btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+								    ImGui::IsItemClicked(), ImGui::IsItemHovered());
+							ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawResearchButton,
+										static_cast<void*>(btn));
+						}
+					}
+					ImGui::EndChild();
+					if (lclIsResearch && ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						if (lclIsResearch && lclResearchTopic)
+							ImGui::Text("%s", lclResearchTopic->name.toUtf8().data());
+						ImGui::EndTooltip();
+					}
+
+
+					if (ImGui::BeginChild("struct_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					{
+						ImGui::Button("", but_sz);
+
+						float frac = 0.f;
+						if (lclIsResearch)
+						{
+							frac = (float)getBuildingResearchPoints(lclStructure) / WBAR_SCALE;
+						}
+						else if (lclIsFactory)
+						{
+							frac = (float)getBuildingProductionPoints(lclStructure) / WBAR_SCALE;
+						}
+
+						ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
+					}
+					ImGui::EndChild();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("%s", getName(lclStructure->pStructureType));
+						ImGui::EndTooltip();
+					}
+
+					ImGui::PopID();
+					ImGui::EndGroup();
+					ImGui::SameLine();
+
+					break;
+
+				case OBJ_FEATURE:
+				       //objButton->setTip(getName(((FEATURE *)psObj)->psStats));
+				       break;
+
+				default:
+				       break;
+				}
+			}
+		}
+
+		ImGui::End();
 	}
 }
 
@@ -3182,6 +3457,14 @@ static bool intAddObjectWindow(BASE_OBJECT *psObjects, BASE_OBJECT *psSelected, 
 		}
 	}
 
+	// reuse existing elements and new ones if needed
+	for(size_t i = objReseachButtonVec.size(); i < apsObjectList.size(); ++i)
+	{
+	    objReseachButtonVec.push_back(std::unique_ptr<IntButtonForResearch>(new IntButtonForResearch));
+	}
+	// this will trim extra ones down or do nothing
+	objReseachButtonVec.resize(apsObjectList.size());
+
 	if (apsObjectList.empty())
 	{
 		// No objects so close the stats window if it's up...
@@ -3265,6 +3548,8 @@ static bool intAddObjectWindow(BASE_OBJECT *psObjects, BASE_OBJECT *psSelected, 
 	psObjSelected = NULL;
 
 	WIDGET *parent = psWScreen->psForm;
+
+	hciStatus.IsObjectFormUp = true;
 
 	/* Create the basic form */
 	IntFormAnimated *objForm = new IntFormAnimated(parent, false);
@@ -3707,6 +3992,8 @@ void intRemoveObject(void)
 		Form->closeAnimateDelete();
 	}
 
+	hciStatus.IsObjectFormUp = false;
+
 	intHidePowerBar();
 
 	if (bInTutorial)
@@ -3723,6 +4010,7 @@ static void intRemoveObjectNoAnim(void)
 	widgDelete(psWScreen, IDOBJ_TABFORM);
 	widgDelete(psWScreen, IDOBJ_CLOSE);
 	widgDelete(psWScreen, IDOBJ_FORM);
+	hciStatus.IsObjectFormUp = false;
 
 	intHidePowerBar();
 }

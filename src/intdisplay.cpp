@@ -2519,3 +2519,375 @@ void intSetShadowPower(int quantity)
 {
 	ManuPower = quantity;
 }
+
+IntButtonForObject::IntButtonForObject():
+	is_down(false), is_highlighted(false), _x(0), _y(0)
+{
+	setupModel();
+}
+
+void IntButtonForObject::update(int x, int y, bool down, bool highlighted)
+{
+	is_down = down;
+	is_highlighted = highlighted;
+	_x = x;
+	_y = y;
+}
+
+// Create a button by rendering an IMD object into it.
+void IntButtonForObject::displayIMD(Image image, ImdObject imdObject, int xOffset, int yOffset)
+{
+	if (imdObject.empty())
+	{
+		displayImage(image, xOffset, yOffset);
+		return;
+	}
+
+	int ButXPos = xOffset + x();
+	int ButYPos = yOffset + y();
+	UDWORD ox, oy;
+	UDWORD Radius;
+	UDWORD basePlateSize;
+
+	if (isDown())
+	{
+		ox = oy = 2;
+	}
+	else
+	{
+		ox = oy = 0;
+	}
+
+	pie_SetGeometricOffset(ButXPos + ox, ButYPos + oy + 8);
+
+	ImdType IMDType = imdObject.type;
+	void *Object = imdObject.ptr;
+
+	if (IMDType == IMDTYPE_DROID || IMDType == IMDTYPE_DROIDTEMPLATE)
+	{
+		// The case where we have to render a composite droid.
+
+		if (IMDType == IMDTYPE_DROID)
+		{
+			Radius = getComponentDroidRadius((DROID *)Object);
+		}
+		else
+		{
+			Radius = getComponentDroidTemplateRadius((DROID_TEMPLATE *)Object);
+		}
+
+		model.scale = DROID_BUT_SCALE;
+		model.scale *= ImGui::GetIO().FontGlobalScale;
+
+		ASSERT(Radius <= 128, "create PIE button big component found");
+
+		if (IMDType == IMDTYPE_DROID)
+		{
+			if (isTransporter((DROID *)Object))
+			{
+				if (((DROID *)Object)->droidType == DROID_TRANSPORTER)
+				{
+					model.scale = DROID_BUT_SCALE / 2;
+				}
+				else
+				{
+					model.scale = DROID_BUT_SCALE / 3;
+				}
+			}
+		}
+		else//(IMDType == IMDTYPE_DROIDTEMPLATE)
+		{
+			if (isTransporter((DROID_TEMPLATE *)Object))
+			{
+				if (((DROID_TEMPLATE *)Object)->droidType == DROID_TRANSPORTER)
+				{
+					model.scale = DROID_BUT_SCALE / 2;
+				}
+				else
+				{
+					model.scale = DROID_BUT_SCALE / 3;
+				}
+			}
+		}
+
+		//lefthand display droid buttons
+		if (IMDType == IMDTYPE_DROID)
+		{
+			displayComponentButtonObject((DROID *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else
+		{
+			displayComponentButtonTemplate((DROID_TEMPLATE *)Object, &model.rotation, &model.position, model.scale);
+		}
+	}
+	else
+	{
+		// Just drawing a single IMD.
+
+		// Decide which button grid size to use.
+		if (IMDType == IMDTYPE_COMPONENT)
+		{
+			Radius = getComponentRadius((BASE_STATS *)Object);
+			model.scale = rescaleButtonObject(Radius, COMP_BUT_SCALE, COMPONENT_RADIUS);
+			// NOTE: The Super transport is huge, and is considered a component type, so refit it to inside the button.
+			BASE_STATS *psStats = (BASE_STATS *)Object;
+			if (psStats->id.compare("SuperTransportBody") == 0)
+			{
+				model.scale *= .4;
+			}
+			else if (psStats->id.compare("TransporterBody") == 0)
+			{
+				model.scale *= .6;
+			}
+		}
+		else if (IMDType == IMDTYPE_RESEARCH)
+		{
+			Radius = getResearchRadius((BASE_STATS *)Object);
+			if (Radius <= 100)
+			{
+				model.scale = rescaleButtonObject(Radius, COMP_BUT_SCALE, COMPONENT_RADIUS);
+			}
+			else if (Radius <= 128)
+			{
+				model.scale = SMALL_STRUCT_SCALE;
+			}
+			else if (Radius <= 256)
+			{
+				model.scale = MED_STRUCT_SCALE;
+			}
+			else
+			{
+				model.scale = LARGE_STRUCT_SCALE;
+			}
+		}
+		else if (IMDType == IMDTYPE_STRUCTURE)
+		{
+			basePlateSize = getStructureSizeMax((STRUCTURE *)Object);
+			if (basePlateSize == 1)
+			{
+				model.scale = SMALL_STRUCT_SCALE;
+			}
+			else if (basePlateSize == 2)
+			{
+				model.scale = MED_STRUCT_SCALE;
+			}
+			else
+			{
+				model.scale = LARGE_STRUCT_SCALE;
+			}
+		}
+		else if (IMDType == IMDTYPE_STRUCTURESTAT)
+		{
+			basePlateSize = getStructureStatSizeMax((STRUCTURE_STATS *)Object);
+			if (basePlateSize == 1)
+			{
+				model.scale = SMALL_STRUCT_SCALE;
+			}
+			else if (basePlateSize == 2)
+			{
+				model.scale = MED_STRUCT_SCALE;
+			}
+			else
+			{
+				model.scale = LARGE_STRUCT_SCALE;
+			}
+		}
+		else if (IMDType == IMDTYPE_FEATURE)
+		{
+			int imdRadius = ((iIMDShape *)Object)->radius;
+
+			if (imdRadius <= 40)
+			{
+				model.scale = ULTRA_SMALL_FEATURE_SCALE;
+			}
+			else if (imdRadius <= 64)
+			{
+				model.scale = REALLY_SMALL_FEATURE_SCALE;
+			}
+			else if (imdRadius <= 128)
+			{
+				model.scale = SMALL_FEATURE_SCALE;
+			}
+			else if (imdRadius <= 256)
+			{
+				model.scale = MED_FEATURE_SCALE;
+			}
+			else
+			{
+				model.scale = LARGE_FEATURE_SCALE;
+			}
+		}
+		else
+		{
+			Radius = ((iIMDShape *)Object)->sradius;
+
+			if (Radius <= 128)
+			{
+				model.scale = SMALL_STRUCT_SCALE;
+			}
+			else if (Radius <= 256)
+			{
+				model.scale = MED_STRUCT_SCALE;
+			}
+			else
+			{
+				model.scale = LARGE_STRUCT_SCALE;
+			}
+		}
+
+		model.scale *= ImGui::GetIO().FontGlobalScale;
+
+		if (!image.isNull())
+		{
+			iV_DrawImage(image, ButXPos + ox, ButYPos + oy);
+		}
+
+		pie_SetDepthBufferStatus(DEPTH_CMP_LEQ_WRT_ON);
+
+		/* all non droid buttons */
+		if (IMDType == IMDTYPE_COMPONENT)
+		{
+			displayComponentButton((BASE_STATS *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else if (IMDType == IMDTYPE_RESEARCH)
+		{
+			displayResearchButton((BASE_STATS *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else if (IMDType == IMDTYPE_STRUCTURE)
+		{
+			displayStructureButton((STRUCTURE *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else if (IMDType == IMDTYPE_STRUCTURESTAT)
+		{
+			displayStructureStatButton((STRUCTURE_STATS *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else if (IMDType == IMDTYPE_FEATURE)
+		{
+			displayIMDButton((iIMDShape *)Object, &model.rotation, &model.position, model.scale);
+		}
+		else
+		{
+			displayIMDButton((iIMDShape *)Object, &model.rotation, &model.position, model.scale);
+		}
+
+		pie_SetDepthBufferStatus(DEPTH_CMP_ALWAYS_WRT_ON);
+	}
+}
+
+// Create a button by rendering an image into it.
+void IntButtonForObject::displayImage(Image image, int xOffset, int yOffset)
+{
+	if (image.isNull())
+	{
+		displayBlank(xOffset, yOffset);
+		return;
+	}
+
+	iV_DrawImage(image, xOffset + x(), yOffset + y());
+}
+
+void IntButtonForObject::displayBlank(int xOffset, int yOffset)
+{
+	UDWORD ox, oy;
+
+	if (isDown())
+	{
+		ox = oy = 1;
+	}
+	else
+	{
+		ox = oy = 0;
+	}
+
+	// Draw a question mark, bit of quick hack this.
+	iV_DrawImage(IntImages, IMAGE_QUESTION_MARK, xOffset + x() + ox + 10, yOffset + y() + oy + 3);
+}
+
+void IntButtonForObject::setupModel()
+{
+	model.position.x = 0;
+	model.position.y = 0;
+	model.position.z = BUTTON_DEPTH;
+	model.rotation.x = -30;
+	model.rotation.y = DEFAULT_BUTTON_ROTATION;
+	model.rotation.z = 0;
+	model.rate = 0;
+}
+
+void IntButtonForObject::initDisplay()
+{
+	model.rate += realTimeAdjustedAverage(isHighlighted() ? 2 * BUTTONOBJ_ROTSPEED : -4 * BUTTONOBJ_ROTSPEED);
+	model.rate = clip(model.rate, 0, BUTTONOBJ_ROTSPEED);
+	model.rotation.y += realTimeAdjustedAverage(model.rate);
+}
+
+void IntButtonForObject::doneDisplay()
+{
+}
+
+IntButtonForResearch::IntButtonForResearch(RESEARCH* pRes):
+	pResearch(pRes)
+{
+}
+
+void IntButtonForResearch::doDrawing(int xOffset, int yOffset)
+{
+	iIMDShape *shape;
+	BASE_STATS *psResGraphic;
+	UDWORD compID;
+	ImdObject object;
+	Image image;
+
+	initDisplay();
+
+	if (!pResearch)
+	{
+		object = ImdObject::Research(nullptr);
+		image = nullptr;
+	}
+	else
+	{
+
+		StatGetResearchImage(pResearch, &image, &shape, &psResGraphic, false);
+		if (psResGraphic)
+		{
+			// we have a Stat associated with this research topic
+			if (StatIsStructure(psResGraphic))
+			{
+				// overwrite the Object pointer
+				object = ImdObject::StructureStat(psResGraphic);
+			}
+			else
+			{
+				compID = StatIsComponent(psResGraphic);
+				if (compID != COMP_NUMCOMPONENTS)
+				{
+					// overwrite the Object pointer
+					object = ImdObject::Component(psResGraphic);
+				}
+				else
+				{
+					ASSERT(false, "Invalid Stat for research button");
+					object = ImdObject::Research(nullptr);
+				}
+			}
+		}
+		else
+		{
+			// no Stat for this research topic so just use the graphic provided
+			// if Object != NULL the there must be a IMD so set the object to
+			// equal the Research stat
+			if (shape != nullptr)
+			{
+				object = ImdObject::Research(pResearch);
+			}
+			else
+				object = ImdObject::Component(nullptr);
+		}
+
+	}
+
+	displayIMD(image, object, xOffset, yOffset);
+
+	doneDisplay();
+}
