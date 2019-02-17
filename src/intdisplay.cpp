@@ -2788,19 +2788,12 @@ void IntButtonForObject::displayImage(Image image, int xOffset, int yOffset)
 
 void IntButtonForObject::displayBlank(int xOffset, int yOffset)
 {
-	UDWORD ox, oy;
-
-	if (isDown())
-	{
-		ox = oy = 1;
-	}
-	else
-	{
-		ox = oy = 0;
-	}
-
+	UDWORD off = isDown() ? 1 : 0;
 	// Draw a question mark, bit of quick hack this.
-	iV_DrawImage(IntImages, IMAGE_QUESTION_MARK, xOffset + x() + ox + 10, yOffset + y() + oy + 3);
+	ImageDef *image = &IntImages->imageDefs[IMAGE_QUESTION_MARK];
+	xOffset -= image->Width * 0.5;
+	yOffset -= image->Height * 0.5;
+	iV_DrawImage(IntImages, IMAGE_QUESTION_MARK, xOffset + x() + off, yOffset + y() + off);
 }
 
 void IntButtonForObject::setupModel()
