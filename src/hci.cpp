@@ -2927,12 +2927,13 @@ void intDisplayWidgets(void)
 				       continue; // Don't add the button if the objects dead.
 				}
 
+				lclStats = objGetStatsFunc(lclObj);
+
 				/* Got an object - set the text and tip for the button */
 				switch (lclObj->type)
 				{
 				case OBJ_DROID:
 					lclDroid = (DROID *)lclObj;
-					lclStats = objGetStatsFunc(lclObj);
 
 					ImGui::BeginGroup();
 					ImGui::PushID(lclDroid->id);
@@ -2943,7 +2944,7 @@ void intDisplayWidgets(void)
 
 					}
 					ImGui::EndChild();
-					if ((lclStats != NULL) && ImGui::IsItemHovered())
+					if (!!lclStats && ImGui::IsItemHovered())
 					{
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", getName(lclStats));
@@ -3011,6 +3012,7 @@ void intDisplayWidgets(void)
 
 						if (lclIsResearch)
 						{
+							// Draw topic
 							IntButtonForResearch* btn = objReseachButtonVec[i].get();
 							ImVec2 cur_pos = ImGui::GetWindowPos();
 							btn->updateTopic(lclResearchTopic);
@@ -3021,14 +3023,12 @@ void intDisplayWidgets(void)
 						}
 					}
 					ImGui::EndChild();
-					if (lclIsResearch && ImGui::IsItemHovered())
+					if (!!lclStats && ImGui::IsItemHovered())
 					{
 						ImGui::BeginTooltip();
-						if (lclIsResearch && lclResearchTopic)
-							ImGui::Text("%s", lclResearchTopic->name.toUtf8().data());
+						ImGui::Text("%s", getName(lclStats));
 						ImGui::EndTooltip();
 					}
-
 
 					if (ImGui::BeginChild("struct_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
