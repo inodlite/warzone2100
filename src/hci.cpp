@@ -2902,6 +2902,7 @@ void intDisplayWidgets(void)
 		int			lclCompIndex;
 		bool			lclIsFactory;
 		bool			lclIsResearch;
+		int			lclTimeToBuild;
 
 		const ImGuiIO& io = ImGui::GetIO();
 		const ImGuiStyle& style = ImGui::GetStyle();
@@ -3012,6 +3013,32 @@ void intDisplayWidgets(void)
 
 						if (lclIsResearch)
 						{
+							// Completion bar
+							float frac = 0.f;
+							if (structureIsResearchingPending(lclStructure))
+							{
+								unsigned currentPoints = 0;
+
+								if (lclResearchTopic != NULL)
+									currentPoints = asPlayerResList[selectedPlayer][lclResearchTopic->index].currentPoints;
+
+								if (currentPoints != 0)
+								{
+									int researchRate = ((RESEARCH_FACILITY *)lclStructure->pFunctionality)->timeStartHold == 0 ?
+												getBuildingResearchPoints(lclStructure) : 0;
+									if (researchRate != 0)
+										lclTimeToBuild = (lclResearchTopic->researchPoints - currentPoints) / researchRate;
+									frac = (float)currentPoints / lclResearchTopic->researchPoints;
+								}
+								else
+								{
+									// Not yet started production.
+									// This is a green progress bar is old system with number of points needed as text
+									lclTimeToBuild = -checkPowerRequest(lclStructure);
+								}
+							}
+							ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
+
 							// Draw topic
 							IntButtonForResearch* btn = objReseachButtonVec[i].get();
 							ImVec2 cur_pos = ImGui::GetWindowPos();
@@ -3027,6 +3054,19 @@ void intDisplayWidgets(void)
 					{
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", getName(lclStats));
+						if (lclIsResearch)
+						{
+							if (lclTimeToBuild > 0)
+							{
+								char timeText[20];
+								ssprintf(timeText, "%d:%02d", lclTimeToBuild / 60, lclTimeToBuild % 60);
+								ImGui::Text(_("Time left: %s"), timeText);
+							}
+							else if (lclTimeToBuild < -1)
+							{
+								ImGui::Text(_("Waiting for Power: %d"), -lclTimeToBuild);
+							}
+						}
 						ImGui::EndTooltip();
 					}
 
