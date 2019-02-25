@@ -304,12 +304,13 @@ void intDisplayAllyBar(WIDGET *psWidget, UDWORD xOffset, UDWORD yOffset);
 
 void intSetShadowPower(int quantity);
 
-class IntButtonForObject
+class IntButtonBase
 {
 public:
-	IntButtonForObject();
+	IntButtonBase();
 
 	void update(int x, int y, bool down, bool highlighted);
+	void resetModel();
 
 protected:
 	bool isDown() const {return is_down;};
@@ -318,12 +319,10 @@ protected:
 	int y() const {return _y;};
 
 	void initDisplay();
-	void setupModel();
 	void doneDisplay();
 
 	void displayIMD(Image image, ImdObject imdObject, int xOffset, int yOffset);
 	void displayImage(Image image, int xOffset, int yOffset);
-	void displayBlank(int xOffset, int yOffset);
 
 	struct
 	{
@@ -336,7 +335,7 @@ protected:
 	int _x, _y;
 };
 
-class IntButtonForResearch: public IntButtonForObject
+class IntButtonForResearch: public IntButtonBase
 {
 public:
 	IntButtonForResearch(RESEARCH* pRes = nullptr);
@@ -346,6 +345,18 @@ public:
 
 private:
 	RESEARCH* pResearch;
+};
+
+class IntButtonForObject: public IntButtonBase
+{
+public:
+	IntButtonForObject(BASE_OBJECT* pObj = nullptr);
+
+	void doDrawing(int xOffset = 0, int yOffset = 0);
+	void updateTopic(BASE_OBJECT* pObj = nullptr) {pObject = pObj;}
+
+private:
+	BASE_OBJECT *pObject;
 };
 
 #endif // __INCLUDED_SRC_INTDISPLAY_H__

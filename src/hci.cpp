@@ -313,6 +313,7 @@ COMPONENT_STATS	**apsExtraSysList;
 // store the objects that are being used for the object bar
 static std::vector<BASE_OBJECT *> apsObjectList;
 static std::vector<std::unique_ptr<IntButtonForResearch> > objReseachButtonVec;
+static std::vector<std::unique_ptr<IntButtonForObject> > objObjectButtonVec;
 
 /* Flags to check whether the power bars are currently on the screen */
 static bool				powerBarUp = false;
@@ -689,6 +690,26 @@ namespace ImGui {
 			if (show_demo_window)
 				ImGui::ShowDemoWindow(&show_demo_window);
 		}
+
+		template<class T> void AdjustIntButtonsVecToObjects(std::vector<std::unique_ptr<T> >& vec)
+		{
+			if (vec.size() < apsObjectList.size())
+			{
+				for(auto const& value: vec)
+					static_cast<IntButtonBase*>(value.get())->resetModel();
+				for(size_t i = vec.size(); i < apsObjectList.size(); ++i)
+				{
+					vec.push_back(std::unique_ptr<T>(new T));
+				}
+			}
+			else
+			{
+				// this will trim extra ones down or do nothing
+				vec.resize(apsObjectList.size());
+				for(auto const& value: vec)
+					static_cast<IntButtonBase*>(value.get())->resetModel();
+			}
+		}
 	}
 }
 
@@ -851,6 +872,7 @@ bool intInitialise(void)
 	// allocate the object list
 	apsObjectList.clear();
 	objReseachButtonVec.clear();
+	objObjectButtonVec.clear();
 
 	psObjSelected = nullptr;
 
@@ -923,6 +945,7 @@ void interfaceShutDown(void)
 	free(apsExtraSysList);
 	apsObjectList.clear();
 	objReseachButtonVec.clear();
+	objObjectButtonVec.clear();
 	psObjSelected = nullptr;
 
 	psWScreen = NULL;
@@ -2752,6 +2775,13 @@ struct strWzRender
 		IntButtonForResearch* resbtn = static_cast<IntButtonForResearch*>(cmd->UserCallbackData);
 		resbtn->doDrawing();
 	}
+
+	static void cbDrawObjectButton(const ImDrawList*, const ImDrawCmd* cmd)
+	{
+		wzRenderingWrapper old_state;
+		IntButtonForObject* objbtn = static_cast<IntButtonForObject*>(cmd->UserCallbackData);
+		objbtn->doDrawing();
+	}
 };
 
 uint hciDoReticuleForm()
@@ -2939,7 +2969,7 @@ void intDisplayWidgets(void)
 					ImGui::BeginGroup();
 					ImGui::PushID(lclDroid->id);
 
-					if (ImGui::BeginChild("droid_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					if (ImGui::BeginChild("##droid_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
 						ImGui::Button("", but_sz);
 
@@ -2952,7 +2982,7 @@ void intDisplayWidgets(void)
 						ImGui::EndTooltip();
 					}
 
-					if (ImGui::BeginChild("droid_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					if (ImGui::BeginChild("##droid_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
 						ImGui::Button("", but_sz);
 
@@ -2969,6 +2999,15 @@ void intDisplayWidgets(void)
 										      lclDroid->player) / WBAR_SCALE;
 							ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
 						}
+
+						// Draw droid
+						IntButtonForObject* btn = objObjectButtonVec[i].get();
+						ImVec2 cur_pos = ImGui::GetWindowPos();
+						btn->updateTopic(lclObj);
+						btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
+						ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawObjectButton,
+									static_cast<void*>(btn));
 					}
 					ImGui::EndChild();
 					if (ImGui::IsItemHovered())
@@ -3074,6 +3113,16 @@ void intDisplayWidgets(void)
 					{
 						ImGui::Button("", but_sz);
 
+						// Draw structure
+						IntButtonForObject* btn = objObjectButtonVec[i].get();
+						ImVec2 cur_pos = ImGui::GetWindowPos();
+						btn->updateTopic(lclObj);
+						btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
+						ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawObjectButton,
+									static_cast<void*>(btn));
+
+						// Draw power bar
 						float frac = 0.f;
 						if (lclIsResearch)
 						{
@@ -3328,6 +3377,9 @@ static unsigned rebuildFactoryListAndFindIndex(STRUCTURE *psBuilding)
 			apsObjectList.push_back(psCurr);
 		}
 	}
+
+	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForObject>(objObjectButtonVec);
+
 	// order the list
 	orderFactories();
 	// now look thru the list to see which one corresponds to the factory that has just finished
@@ -3497,13 +3549,8 @@ static bool intAddObjectWindow(BASE_OBJECT *psObjects, BASE_OBJECT *psSelected, 
 		}
 	}
 
-	// reuse existing elements and new ones if needed
-	for(size_t i = objReseachButtonVec.size(); i < apsObjectList.size(); ++i)
-	{
-	    objReseachButtonVec.push_back(std::unique_ptr<IntButtonForResearch>(new IntButtonForResearch));
-	}
-	// this will trim extra ones down or do nothing
-	objReseachButtonVec.resize(apsObjectList.size());
+	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForResearch>(objReseachButtonVec);
+	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForObject>(objObjectButtonVec);
 
 	if (apsObjectList.empty())
 	{

@@ -2520,13 +2520,13 @@ void intSetShadowPower(int quantity)
 	ManuPower = quantity;
 }
 
-IntButtonForObject::IntButtonForObject():
+IntButtonBase::IntButtonBase():
 	is_down(false), is_highlighted(false), _x(0), _y(0)
 {
-	setupModel();
+	resetModel();
 }
 
-void IntButtonForObject::update(int x, int y, bool down, bool highlighted)
+void IntButtonBase::update(int x, int y, bool down, bool highlighted)
 {
 	is_down = down;
 	is_highlighted = highlighted;
@@ -2535,7 +2535,7 @@ void IntButtonForObject::update(int x, int y, bool down, bool highlighted)
 }
 
 // Create a button by rendering an IMD object into it.
-void IntButtonForObject::displayIMD(Image image, ImdObject imdObject, int xOffset, int yOffset)
+void IntButtonBase::displayIMD(Image image, ImdObject imdObject, int xOffset, int yOffset)
 {
 	if (imdObject.empty())
 	{
@@ -2775,28 +2775,15 @@ void IntButtonForObject::displayIMD(Image image, ImdObject imdObject, int xOffse
 }
 
 // Create a button by rendering an image into it.
-void IntButtonForObject::displayImage(Image image, int xOffset, int yOffset)
+void IntButtonBase::displayImage(Image image, int xOffset, int yOffset)
 {
 	if (image.isNull())
-	{
-		displayBlank(xOffset, yOffset);
 		return;
-	}
 
 	iV_DrawImage(image, xOffset + x(), yOffset + y());
 }
 
-void IntButtonForObject::displayBlank(int xOffset, int yOffset)
-{
-	UDWORD off = isDown() ? 1 : 0;
-	// Draw a question mark, bit of quick hack this.
-	ImageDef *image = &IntImages->imageDefs[IMAGE_QUESTION_MARK];
-	xOffset -= image->Width * 0.5;
-	yOffset -= image->Height * 0.5;
-	iV_DrawImage(IntImages, IMAGE_QUESTION_MARK, xOffset + x() + off, yOffset + y() + off);
-}
-
-void IntButtonForObject::setupModel()
+void IntButtonBase::resetModel()
 {
 	model.position.x = 0;
 	model.position.y = 0;
@@ -2807,14 +2794,14 @@ void IntButtonForObject::setupModel()
 	model.rate = 0;
 }
 
-void IntButtonForObject::initDisplay()
+void IntButtonBase::initDisplay()
 {
 	model.rate += realTimeAdjustedAverage(isHighlighted() ? 2 * BUTTONOBJ_ROTSPEED : -4 * BUTTONOBJ_ROTSPEED);
 	model.rate = clip(model.rate, 0, BUTTONOBJ_ROTSPEED);
 	model.rotation.y += realTimeAdjustedAverage(model.rate);
 }
 
-void IntButtonForObject::doneDisplay()
+void IntButtonBase::doneDisplay()
 {
 }
 
@@ -2836,11 +2823,9 @@ void IntButtonForResearch::doDrawing(int xOffset, int yOffset)
 	if (!pResearch)
 	{
 		object = ImdObject::Research(nullptr);
-		image = nullptr;
 	}
 	else
 	{
-
 		StatGetResearchImage(pResearch, &image, &shape, &psResGraphic, false);
 		if (psResGraphic)
 		{
@@ -2881,6 +2866,40 @@ void IntButtonForResearch::doDrawing(int xOffset, int yOffset)
 	}
 
 	displayIMD(image, object, xOffset, yOffset);
+
+	doneDisplay();
+}
+
+IntButtonForObject::IntButtonForObject(BASE_OBJECT *pObj):
+	pObject(pObj)
+{
+}
+
+void IntButtonForObject::doDrawing(int xOffset, int yOffset)
+{
+	if (pObject && isDead(pObject))
+		pObject = nullptr;
+
+	initDisplay();
+
+	ImdObject object;
+
+	if (pObject)
+	{
+		switch (pObject->type)
+		{
+		case OBJ_DROID:						// If it's a droid...
+			object = ImdObject::Droid(pObject);
+			break;
+		case OBJ_STRUCTURE:					// If it's a structure...
+			object = ImdObject::Structure(pObject);
+			break;
+		default:
+			ASSERT(false, "Invalid object type");
+		}
+	}
+
+	displayIMD(Image(), object, xOffset, yOffset);
 
 	doneDisplay();
 }
