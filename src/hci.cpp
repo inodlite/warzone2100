@@ -384,6 +384,7 @@ static void intRunStats(void);
 static void intStatsRMBPressed(UDWORD id);
 
 /*Deals with the RMB click for the object screen */
+static void intObjectRMBPressed(BASE_OBJECT *psObj);
 static void intObjectRMBPressed(UDWORD id);
 
 /*Deals with the RMB click for the Object Stats buttons */
@@ -3017,6 +3018,10 @@ void intDisplayWidgets(void)
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", droidGetName(lclDroid));
 						ImGui::EndTooltip();
+
+						// RMB
+						if (ImGui::IsMouseClicked(1))
+							intObjectRMBPressed(lclObj);
 					}
 
 					ImGui::PopID();
@@ -3143,6 +3148,10 @@ void intDisplayWidgets(void)
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", getName(lclStructure->pStructureType));
 						ImGui::EndTooltip();
+
+						// RMB
+						if (ImGui::IsMouseClicked(1))
+							intObjectRMBPressed(lclObj);
 					}
 
 					ImGui::PopID();
@@ -4958,15 +4967,10 @@ static void intStatsRMBPressed(UDWORD id)
 }
 
 /*Deals with the RMB click for the Object screen */
-static void intObjectRMBPressed(UDWORD id)
+static void intObjectRMBPressed(BASE_OBJECT *psObj)
 {
-	BASE_OBJECT		*psObj;
 	STRUCTURE		*psStructure;
 
-	ASSERT_OR_RETURN(, id - IDOBJ_OBJSTART < apsObjectList.size(), "Invalid object id");
-
-	/* Find the object that the ID refers to */
-	psObj = intGetObject(id);
 	if (psObj)
 	{
 		//don't jump around when offworld
@@ -4984,6 +4988,17 @@ static void intObjectRMBPressed(UDWORD id)
 			}
 		}
 	}
+}
+
+static void intObjectRMBPressed(UDWORD id)
+{
+	BASE_OBJECT		*psObj;
+
+	ASSERT_OR_RETURN(, id - IDOBJ_OBJSTART < apsObjectList.size(), "Invalid object id");
+
+	/* Find the object that the ID refers to */
+	psObj = intGetObject(id);
+	intObjectRMBPressed(psObj);
 }
 
 /*Deals with the RMB click for the Object Stats buttons */
