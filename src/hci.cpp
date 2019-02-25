@@ -2950,6 +2950,8 @@ void intDisplayWidgets(void)
 					  style.WindowPadding.y * 2 - style.ItemSpacing.y) * 0.5f);
 			but_sz.x = but_sz.y * 1.3333f;
 
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
+
 			for (unsigned i = 0; i < apsObjectList.size(); ++i)
 			{
 				BASE_OBJECT *lclObj = apsObjectList[i];
@@ -3157,6 +3159,8 @@ void intDisplayWidgets(void)
 				       break;
 				}
 			}
+
+			ImGui::PopStyleVar();
 		}
 
 		ImGui::End();
