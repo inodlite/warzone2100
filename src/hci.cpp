@@ -387,8 +387,9 @@ static void intStatsRMBPressed(UDWORD id);
 static void intObjectRMBPressed(BASE_OBJECT *psObj);
 static void intObjectRMBPressed(UDWORD id);
 
-/*Deals with the RMB click for the Object Stats buttons */
+/*Deals with the clicks for the Object Stats buttons */
 static void intObjStatRMBPressed(UDWORD id);
+static void intObjStatLMBPressed(BASE_OBJECT *psObj);
 
 //proximity display stuff
 static void processProximityButtons(UDWORD id);
@@ -2328,36 +2329,7 @@ static void intProcessObject(UDWORD id)
 			psObj = intGetObject(id);
 			ASSERT_OR_RETURN(, psObj, "Missing referred to object id %u", id);
 
-			intResetWindows(psObj);
-
-			// If a droid button was clicked then clear all other selections and select it.
-			if (psObj->type == OBJ_DROID)
-			{
-				// Select the droid when the stat button (in the object window) is pressed.
-				intSelectDroid(psObj);
-				psObjSelected = psObj;
-			}
-			else if (psObj->type == OBJ_STRUCTURE)
-			{
-				if (StructIsFactory((STRUCTURE *)psObj))
-				{
-					//might need to cancel the hold on production
-					releaseProduction((STRUCTURE *)psObj, ModeQueue);
-				}
-				else if (((STRUCTURE *)psObj)->pStructureType->type == REF_RESEARCH)
-				{
-					//might need to cancel the hold on research facilty
-					releaseResearch((STRUCTURE *)psObj, ModeQueue);
-				}
-
-				for (STRUCTURE *psCurr = apsStructLists[selectedPlayer]; psCurr; psCurr = psCurr->psNext)
-				{
-					psCurr->selected = false;
-				}
-				psObj->selected = true;
-				triggerEventSelected();
-				jsDebugSelected(psObj);
-			}
+			intObjStatLMBPressed(psObj);
 		}
 	}
 	else if (id == IDOBJ_CLOSE)
@@ -2947,6 +2919,7 @@ void intDisplayWidgets(void)
 		if (ImGui::Begin("##ObjectForm", &hciStatus.IsObjectFormUp,
 				 ImGui::Wz::StaticWindowFlags | ImGuiWindowFlags_HorizontalScrollbar))
 		{
+			bool wasLMBClicked;
 			ImVec2 but_sz(0, (ImGui::GetWindowSize().y - style.ScrollbarSize -
 					  style.WindowPadding.y * 2 - style.ItemSpacing.y) * 0.5f);
 			but_sz.x = but_sz.y * 1.3333f;
@@ -2962,6 +2935,7 @@ void intDisplayWidgets(void)
 				}
 
 				lclStats = objGetStatsFunc(lclObj);
+				wasLMBClicked = false;
 
 				/* Got an object - set the text and tip for the button */
 				switch (lclObj->type)
@@ -2974,20 +2948,33 @@ void intDisplayWidgets(void)
 
 					if (ImGui::BeginChild("##droid_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
-						ImGui::Button("", but_sz);
+						if (lclObj->selected)
+							ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_ButtonActive]);
 
+						wasLMBClicked = ImGui::Button("", but_sz);
+
+						if (lclObj->selected)
+							ImGui::PopStyleColor();
 					}
 					ImGui::EndChild();
-					if (!!lclStats && ImGui::IsItemHovered())
+					if (ImGui::IsItemHovered())
 					{
-						ImGui::BeginTooltip();
-						ImGui::Text("%s", getName(lclStats));
-						ImGui::EndTooltip();
+						// Mouse clicks
+						if (wasLMBClicked)
+							intObjStatLMBPressed(lclObj);
+
+						// Tooltip
+						if (!!lclStats)
+						{
+							ImGui::BeginTooltip();
+							ImGui::Text("%s", getName(lclStats));
+							ImGui::EndTooltip();
+						}
 					}
 
 					if (ImGui::BeginChild("##droid_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
-						ImGui::Button("", but_sz);
+						wasLMBClicked = ImGui::Button("", but_sz);
 
 						if (lclDroid->droidType == DROID_CONSTRUCT ||
 							lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
@@ -3015,13 +3002,14 @@ void intDisplayWidgets(void)
 					ImGui::EndChild();
 					if (ImGui::IsItemHovered())
 					{
+						// Mouse clicks
+						if (ImGui::IsMouseClicked(1))
+							intObjectRMBPressed(lclObj);
+
+						// Tooltip
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", droidGetName(lclDroid));
 						ImGui::EndTooltip();
-
-						// RMB
-						if (ImGui::IsMouseClicked(1))
-							intObjectRMBPressed(lclObj);
 					}
 
 					ImGui::PopID();
@@ -3055,7 +3043,7 @@ void intDisplayWidgets(void)
 
 					if (ImGui::BeginChild("struct_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
-						ImGui::Button("", but_sz);
+						wasLMBClicked = ImGui::Button("", but_sz);
 
 						if (lclIsResearch)
 						{
@@ -3096,29 +3084,37 @@ void intDisplayWidgets(void)
 						}
 					}
 					ImGui::EndChild();
-					if (!!lclStats && ImGui::IsItemHovered())
+					if (ImGui::IsItemHovered())
 					{
-						ImGui::BeginTooltip();
-						ImGui::Text("%s", getName(lclStats));
-						if (lclIsResearch)
+						// Mouse clicks
+						if (wasLMBClicked)
+							intObjStatLMBPressed(lclObj);
+
+						// Tooltip
+						if (!!lclStats)
 						{
-							if (lclTimeToBuild > 0)
+							ImGui::BeginTooltip();
+							ImGui::Text("%s", getName(lclStats));
+							if (lclIsResearch)
 							{
-								char timeText[20];
-								ssprintf(timeText, "%d:%02d", lclTimeToBuild / 60, lclTimeToBuild % 60);
-								ImGui::Text(_("Time left: %s"), timeText);
+								if (lclTimeToBuild > 0)
+								{
+									char timeText[20];
+									ssprintf(timeText, "%d:%02d", lclTimeToBuild / 60, lclTimeToBuild % 60);
+									ImGui::Text(_("Time left: %s"), timeText);
+								}
+								else if (lclTimeToBuild < -1)
+								{
+									ImGui::Text(_("Waiting for Power: %d"), -lclTimeToBuild);
+								}
 							}
-							else if (lclTimeToBuild < -1)
-							{
-								ImGui::Text(_("Waiting for Power: %d"), -lclTimeToBuild);
-							}
+							ImGui::EndTooltip();
 						}
-						ImGui::EndTooltip();
 					}
 
 					if (ImGui::BeginChild("struct_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
 					{
-						ImGui::Button("", but_sz);
+						wasLMBClicked = ImGui::Button("", but_sz);
 
 						// Draw structure
 						IntButtonForObject* btn = objObjectButtonVec[i].get();
@@ -3145,13 +3141,14 @@ void intDisplayWidgets(void)
 					ImGui::EndChild();
 					if (ImGui::IsItemHovered())
 					{
+						// Mouse clicks
+						if (ImGui::IsMouseClicked(1))
+							intObjectRMBPressed(lclObj);
+
+						// Tooltip
 						ImGui::BeginTooltip();
 						ImGui::Text("%s", getName(lclStructure->pStructureType));
 						ImGui::EndTooltip();
-
-						// RMB
-						if (ImGui::IsMouseClicked(1))
-							intObjectRMBPressed(lclObj);
 					}
 
 					ImGui::PopID();
@@ -5060,6 +5057,39 @@ static void intObjStatRMBPressed(UDWORD id)
 	}
 }
 
+static void intObjStatLMBPressed(BASE_OBJECT *psObj)
+{
+	intResetWindows(psObj);
+
+	// If a droid button was clicked then clear all other selections and select it.
+	if (psObj->type == OBJ_DROID)
+	{
+		// Select the droid when the stat button (in the object window) is pressed.
+		intSelectDroid(psObj);
+		psObjSelected = psObj;
+	}
+	else if (psObj->type == OBJ_STRUCTURE)
+	{
+		if (StructIsFactory((STRUCTURE *)psObj))
+		{
+			//might need to cancel the hold on production
+			releaseProduction((STRUCTURE *)psObj, ModeQueue);
+		}
+		else if (((STRUCTURE *)psObj)->pStructureType->type == REF_RESEARCH)
+		{
+			//might need to cancel the hold on research facilty
+			releaseResearch((STRUCTURE *)psObj, ModeQueue);
+		}
+
+		for (STRUCTURE *psCurr = apsStructLists[selectedPlayer]; psCurr; psCurr = psCurr->psNext)
+		{
+			psCurr->selected = false;
+		}
+		psObj->selected = true;
+		triggerEventSelected();
+		jsDebugSelected(psObj);
+	}
+}
 
 //sets up the Intelligence Screen as far as the interface is concerned
 void addIntelScreen(void)
