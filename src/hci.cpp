@@ -895,6 +895,27 @@ namespace ImGui {
 			DROID *pDroid;
 			int lclCompIndex;
 			BASE_STATS *lclStats;
+			STRUCTURE *pStructure;
+
+			if (isForResearch)
+			{
+				pStructure = static_cast<STRUCTURE*>(psObj);
+				if (type == btnObj)
+				{
+					return (float)getBuildingResearchPoints(pStructure) / WBAR_SCALE;
+				}
+				else
+				{
+					if (structureIsResearchingPending(pStructure))
+					{
+						RESEARCH *pResearchTopic = ((RESEARCH_FACILITY *)pStructure->pFunctionality)->psSubject;
+						unsigned currentPoints = asPlayerResList[selectedPlayer][pResearchTopic->index].currentPoints;
+						if (currentPoints != 0)
+							return (float)currentPoints / pResearchTopic->researchPoints;
+					}
+				}
+				return 0.f;
+			}
 
 			switch (psObj->type)
 			{
@@ -915,6 +936,10 @@ namespace ImGui {
 										pDroid->player) / WBAR_SCALE;
 					}
 				}
+			case OBJ_STRUCTURE:
+				pStructure = static_cast<STRUCTURE*>(psObj);
+				// This has to be a factory now
+				return (float)getBuildingProductionPoints(pStructure) / WBAR_SCALE;
 			default:
 				break;
 			}
@@ -925,16 +950,20 @@ namespace ImGui {
 		{
 			BASE_OBJECT *psObj = getObject();
 			DROID *pDroid;
+			STRUCTURE *pStructure;
 
 			switch (psObj->type)
 			{
 			case OBJ_DROID:
 				pDroid = static_cast<DROID*>(psObj);
-
 				if (type == btnObj)
-				{
 					return droidGetName(pDroid);
-				}
+				break;
+			case OBJ_STRUCTURE:
+				pStructure = static_cast<STRUCTURE*>(psObj);
+				if (type == btnObj)
+					return getName(pStructure->pStructureType);
+				break;
 			default:
 				break;
 			}
@@ -3117,17 +3146,7 @@ void intDisplayWidgets(void)
 	// Object form
 	if (!use_wzwidgets && hciStatus.IsObjectFormUp)
 	{
-		BASE_STATS		*lclStats;
-		DROID			*lclDroid;
-		STRUCTURE		*lclStructure;
-		RESEARCH		*lclResearchTopic;
-		int			lclCompIndex;
-		bool			lclIsFactory;
-		bool			lclIsResearch;
-		int			lclTimeToBuild;
-
 		const ImGuiIO& io = ImGui::GetIO();
-		const ImGuiStyle& style = ImGui::GetStyle();
 		const float scale = io.FontGlobalScale;
 
 		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, OBJ_BACKY - 35 * scale/*io.DisplaySize.y * 0.65f*/),
@@ -3138,180 +3157,15 @@ void intDisplayWidgets(void)
 		if (ImGui::Begin("##ObjectForm", &hciStatus.IsObjectFormUp,
 				 ImGui::Wz::StaticWindowFlags | ImGuiWindowFlags_HorizontalScrollbar))
 		{
-			bool wasLMBClicked;
+			const ImGuiStyle& style = ImGui::GetStyle();
 			ImVec2 but_sz(0, (ImGui::GetWindowSize().y - style.ScrollbarSize -
 					  style.WindowPadding.y * 2 - style.ItemSpacing.y) * 0.5f);
 			but_sz.x = but_sz.y * 1.3333f;
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
 
-			for (unsigned i = 0; i < apsObjectList.size(); ++i)
-			{
-				BASE_OBJECT *lclObj = apsObjectList[i];
-				if (lclObj->died != 0)
-				{
-				       continue; // Don't add the button if the objects dead.
-				}
-
-				ImGui::Wz::ObjectAndStatsButtons* btns = hciObjectAndStatsButtonsVec[i].get();
-
-				lclStats = objGetStatsFunc(lclObj);
-				wasLMBClicked = false;
-
-				/* Got an object - set the text and tip for the button */
-				switch (lclObj->type)
-				{
-				case OBJ_DROID:
-					btns->DoUI(but_sz);
-					break;
-
-				case OBJ_STRUCTURE:
-					lclStructure = (STRUCTURE *)lclObj;
-					lclIsFactory = false;
-					lclIsResearch = false;
-
-					switch (lclStructure->pStructureType->type)
-					{
-					case REF_FACTORY:
-					case REF_CYBORG_FACTORY:
-					case REF_VTOL_FACTORY:
-					       lclIsFactory = true;
-					       break;
-					case REF_RESEARCH:
-					       lclIsResearch = true;
-					       lclResearchTopic = ((RESEARCH_FACILITY *)lclStructure->pFunctionality)->psSubject;
-					       break;
-					default:
-					       ASSERT(false, "Invalid structure type");
-					}
-
-					ImGui::BeginGroup();
-					ImGui::PushID(lclStructure->id);
-
-					if (ImGui::BeginChild("struct_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
-					{
-						wasLMBClicked = ImGui::Button("", but_sz);
-
-						if (lclIsResearch)
-						{
-							// Completion bar
-							float frac = 0.f;
-							if (structureIsResearchingPending(lclStructure))
-							{
-								unsigned currentPoints = 0;
-
-								if (lclResearchTopic != NULL)
-									currentPoints = asPlayerResList[selectedPlayer][lclResearchTopic->index].currentPoints;
-
-								if (currentPoints != 0)
-								{
-									int researchRate = ((RESEARCH_FACILITY *)lclStructure->pFunctionality)->timeStartHold == 0 ?
-												getBuildingResearchPoints(lclStructure) : 0;
-									if (researchRate != 0)
-										lclTimeToBuild = (lclResearchTopic->researchPoints - currentPoints) / researchRate;
-									frac = (float)currentPoints / lclResearchTopic->researchPoints;
-								}
-								else
-								{
-									// Not yet started production.
-									// This is a green progress bar is old system with number of points needed as text
-									lclTimeToBuild = -checkPowerRequest(lclStructure);
-								}
-							}
-							ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
-
-							// Draw topic
-							IntButtonForResearch* btn = objReseachButtonVec[i].get();
-							ImVec2 cur_pos = ImGui::GetWindowPos();
-							btn->updateTopic(lclResearchTopic);
-							btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
-								    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-							ImGui::GetWindowDrawList()->AddCallback(ImGui::Wz::ButtonRenderer::cbDrawResearchButton,
-										static_cast<void*>(btn));
-						}
-					}
-					ImGui::EndChild();
-					if (ImGui::IsItemHovered())
-					{
-						// Mouse clicks
-						if (wasLMBClicked)
-							intObjStatLMBPressed(lclObj);
-
-						// Tooltip
-						if (!!lclStats)
-						{
-							ImGui::BeginTooltip();
-							ImGui::Text("%s", getName(lclStats));
-							if (lclIsResearch)
-							{
-								if (lclTimeToBuild > 0)
-								{
-									char timeText[20];
-									ssprintf(timeText, "%d:%02d", lclTimeToBuild / 60, lclTimeToBuild % 60);
-									ImGui::Text(_("Time left: %s"), timeText);
-								}
-								else if (lclTimeToBuild < -1)
-								{
-									ImGui::Text(_("Waiting for Power: %d"), -lclTimeToBuild);
-								}
-							}
-							ImGui::EndTooltip();
-						}
-					}
-
-					if (ImGui::BeginChild("struct_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
-					{
-						wasLMBClicked = ImGui::Button("", but_sz);
-
-						// Draw structure
-						IntButtonForObject* btn = objObjectButtonVec[i].get();
-						ImVec2 cur_pos = ImGui::GetWindowPos();
-						btn->updateTopic(lclObj);
-						btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
-							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-						ImGui::GetWindowDrawList()->AddCallback(ImGui::Wz::ButtonRenderer::cbDrawObjectButton,
-									static_cast<void*>(btn));
-
-						// Draw power bar
-						float frac = 0.f;
-						if (lclIsResearch)
-						{
-							frac = (float)getBuildingResearchPoints(lclStructure) / WBAR_SCALE;
-						}
-						else if (lclIsFactory)
-						{
-							frac = (float)getBuildingProductionPoints(lclStructure) / WBAR_SCALE;
-						}
-
-						ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
-					}
-					ImGui::EndChild();
-					if (ImGui::IsItemHovered())
-					{
-						// Mouse clicks
-						if (ImGui::IsMouseClicked(1))
-							intObjectRMBPressed(lclObj);
-
-						// Tooltip
-						ImGui::BeginTooltip();
-						ImGui::Text("%s", getName(lclStructure->pStructureType));
-						ImGui::EndTooltip();
-					}
-
-					ImGui::PopID();
-					ImGui::EndGroup();
-					ImGui::SameLine();
-
-					break;
-
-				case OBJ_FEATURE:
-				       //objButton->setTip(getName(((FEATURE *)psObj)->psStats));
-				       break;
-
-				default:
-				       break;
-				}
-			}
+			for (auto& btns: hciObjectAndStatsButtonsVec)
+				btns.get()->DoUI(but_sz);
 
 			ImGui::PopStyleVar();
 		}
