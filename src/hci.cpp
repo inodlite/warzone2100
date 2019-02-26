@@ -946,10 +946,12 @@ namespace ImGui {
 					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
 
 				setLMBClicked(btnStats, ImGui::Button("", but_sz));
-				setRMBClicked(btnStats, ImGui::IsMouseClicked(1));
+				setRMBClicked(btnStats, ImGui::IsItemHovered() && ImGui::IsMouseClicked(1));
 
 				if (psObj->selected)
 					ImGui::PopStyleColor();
+
+				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnStats));
 
 				// Refresh topic
 				refreshStatus();
@@ -978,7 +980,7 @@ namespace ImGui {
 			if (ImGui::BeginChild("##obj", but_sz, false, ImGuiWindowFlags_NoDecoration))
 			{
 				setLMBClicked(btnObj, ImGui::Button("", but_sz));
-				setRMBClicked(btnObj, ImGui::IsMouseClicked(1));
+				setRMBClicked(btnObj, ImGui::IsItemHovered() && ImGui::IsMouseClicked(1));
 
 				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnObj));
 
