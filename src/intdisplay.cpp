@@ -3028,11 +3028,7 @@ void IntButtonForStatus::doDrawing(int xOffset, int yOffset)
 	}
 
 	// Render the object into the button.
-	displayIMD(image, object, xOffset, yOffset);
-
-	//need to flash the button if a factory is on hold production
-	if (bOnHold)
-	{
-		iV_DrawImage(IntImages, ((realTime / 250) % 2) == 0 ? IMAGE_BUT0_DOWN : IMAGE_BUT_HILITE, xOffset + x(), yOffset + y());
-	}
+	// But need to flash the button if a factory is on hold production
+	if (!bOnHold || (((realTime / 250) % 2) == 0))
+		displayIMD(image, object, xOffset, yOffset);
 }
