@@ -30,6 +30,7 @@
 #include <string.h>
 #include <algorithm>
 #include <memory>
+#include <bitset>
 
 #include "lib/framework/frame.h"
 #include "lib/framework/stdio_ext.h"
@@ -389,6 +390,7 @@ static void intObjectRMBPressed(UDWORD id);
 
 /*Deals with the clicks for the Object Stats buttons */
 static void intObjStatRMBPressed(UDWORD id);
+static void intObjStatRMBPressed(BASE_OBJECT *psObj);
 static void intObjStatLMBPressed(BASE_OBJECT *psObj);
 
 //proximity display stuff
@@ -712,7 +714,219 @@ namespace ImGui {
 					static_cast<IntButtonBase*>(value.get())->resetModel();
 			}
 		}
+
+		class RenderingWrapper
+		{
+			GLint last_texture;
+			GLint last_program;
+			GLboolean last_enable_blend;
+			GLboolean last_enable_scissor_test;
+			GLboolean last_enable_depth_test;
+
+			void PushRenderState()
+			{
+				glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+				glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
+				last_enable_blend = glIsEnabled(GL_BLEND);
+				last_enable_scissor_test = glIsEnabled(GL_SCISSOR_TEST);
+				last_enable_depth_test = glIsEnabled(GL_DEPTH_TEST);
+				glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+			}
+
+			void PopRenderState()
+			{
+				glPopClientAttrib();
+
+				if (last_enable_depth_test)
+					glEnable(GL_DEPTH_TEST);
+				else
+					glDisable(GL_DEPTH_TEST);
+
+				if (last_enable_scissor_test)
+					glEnable(GL_SCISSOR_TEST);
+				else
+					glDisable(GL_SCISSOR_TEST);
+
+				glBindTexture(GL_TEXTURE_2D, last_texture);
+				// Nudge WZ to invalidate texture binding
+				pie_SetTexturePage(TEXPAGE_EXTERN);
+
+				glUseProgram(last_program);
+
+				if (last_enable_blend)
+					glEnable(GL_BLEND);
+				else
+					glDisable(GL_BLEND);
+
+				// Nudge WZ to invalidate render mode
+				pie_SetRendMode(REND_DUMMY);
+			}
+
+		public:
+			RenderingWrapper() {PushRenderState();};
+			~RenderingWrapper() {PopRenderState();};
+		};
+
+		struct ButtonRenderer
+		{
+			static void cbDrawResearchButton(const ImDrawList*, const ImDrawCmd* cmd)
+			{
+				RenderingWrapper old_state;
+				IntButtonForResearch* resbtn = static_cast<IntButtonForResearch*>(cmd->UserCallbackData);
+				resbtn->doDrawing();
+			}
+
+			static void cbDrawObjectButton(const ImDrawList*, const ImDrawCmd* cmd)
+			{
+				RenderingWrapper old_state;
+				IntButtonForObject* objbtn = static_cast<IntButtonForObject*>(cmd->UserCallbackData);
+				objbtn->doDrawing();
+			}
+		};
+
+
+		class ObjectAndStatsButtons
+		{
+		public:
+			ObjectAndStatsButtons(const size_t _objListIdx):
+				objListIdx(_objListIdx)
+			{
+				refreshObject();
+			}
+
+			void DoUI(const ImVec2& but_sz, const float obj_frac);
+			void DoPostUI();
+			void refreshObject()
+			{
+				imdButObj.updateTopic(getObject());
+			}
+			void reset()
+			{
+				refreshObject();
+				imdButStats.resetModel();
+				imdButObj.resetModel();
+			}
+		protected:
+			enum btnType {btnStats, btnObj, btnCOUNT};
+			BASE_OBJECT *getObject() {return apsObjectList[objListIdx];};
+
+			bool wasLMBClicked(btnType type) {return butClickState[static_cast<uint>(type * 2)];}
+			bool wasRMBClicked(btnType type) {return butClickState[static_cast<uint>(type * 2 + 1)];}
+			void setLMBClicked(btnType type, bool clicked) {butClickState[static_cast<uint>(type * 2)] = clicked;}
+			void setRMBClicked(btnType type, bool clicked) {butClickState[static_cast<uint>(type * 2 + 1)] = clicked;}
+
+			size_t objListIdx;
+			std::bitset<btnCOUNT * 2> butClickState;
+			IntButtonBase imdButStats;
+			IntButtonForObject imdButObj;
+		};
+
+		void ObjectAndStatsButtons::DoPostUI()
+		{
+			BASE_OBJECT *psObj = getObject();
+
+			// Mouse clicks
+			if (wasLMBClicked(btnStats))
+				intObjStatLMBPressed(psObj);
+			else if (wasLMBClicked(btnObj))
+				;//intObjLMBPressed(psObj);
+			else if (wasRMBClicked(btnStats))
+				intObjStatRMBPressed(psObj);
+			else if (wasRMBClicked(btnObj))
+				intObjectRMBPressed(psObj);
+		}
+
+		void ObjectAndStatsButtons::DoUI(const ImVec2& but_sz, const float obj_frac)
+		{
+			BASE_OBJECT *psObj = getObject();
+			BASE_STATS *lclStats;
+
+			butClickState.reset();
+			lclStats = objGetStatsFunc(psObj);
+
+			ImGui::BeginGroup();
+			ImGui::PushID(psObj->id);
+
+			if (ImGui::BeginChild("##stats", but_sz, false, ImGuiWindowFlags_NoDecoration))
+			{
+				if (psObj->selected)
+					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+
+				setLMBClicked(btnStats, ImGui::Button("", but_sz));
+				setRMBClicked(btnStats, ImGui::IsMouseClicked(1));
+
+				if (psObj->selected)
+					ImGui::PopStyleColor();
+			}
+			ImGui::EndChild();
+			if (ImGui::IsItemHovered())
+			{
+				// Tooltip
+				if (!!lclStats)
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("%s", getName(lclStats));
+					ImGui::EndTooltip();
+				}
+			}
+
+			if (ImGui::BeginChild("##obj", but_sz, false, ImGuiWindowFlags_NoDecoration))
+			{
+				setLMBClicked(btnObj, ImGui::Button("", but_sz));
+				setRMBClicked(btnObj, ImGui::IsMouseClicked(1));
+
+				ImGui::Wz::AddPBarForObjectButton(but_sz, obj_frac);
+
+				// Draw object
+				ImVec2 cur_pos = ImGui::GetWindowPos();
+				imdButObj.update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+					    ImGui::IsItemClicked(), ImGui::IsItemHovered());
+				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawObjectButton,
+							static_cast<void*>(&imdButObj));
+			}
+			ImGui::EndChild();
+			if (ImGui::IsItemHovered())
+			{
+				// Tooltip
+				ImGui::BeginTooltip();
+				//ImGui::Text("%s", droidGetName(lclDroid));
+				ImGui::EndTooltip();
+			}
+
+			ImGui::PopID();
+			ImGui::EndGroup();
+			ImGui::SameLine();
+		}
+
+
 	}
+}
+
+static std::vector<std::unique_ptr<ImGui::Wz::ObjectAndStatsButtons> > hciObjectAndStatsButtonsVec;
+
+template<class T> void AdjustObjectAndStatsButtonsVecToObjects(std::vector<std::unique_ptr<T> >& vec)
+{
+	if (vec.size() < apsObjectList.size())
+	{
+		for(auto const& value: vec)
+			static_cast<ImGui::Wz::ObjectAndStatsButtons*>(value.get())->reset();
+		for(size_t i = vec.size(); i < apsObjectList.size(); ++i)
+		{
+			vec.push_back(std::unique_ptr<T>(new T(i)));
+		}
+	}
+	else
+	{
+		// this will trim extra ones down or do nothing
+		vec.resize(apsObjectList.size());
+		for(auto const& value: vec)
+			static_cast<ImGui::Wz::ObjectAndStatsButtons*>(value.get())->reset();
+	}
+}
+
+void ReadjustObjectAndStatsButtonsVecToObjects()
+{
+	AdjustObjectAndStatsButtonsVecToObjects<ImGui::Wz::ObjectAndStatsButtons>(hciObjectAndStatsButtonsVec);
 }
 
 uint hciDoReticuleForm();
@@ -873,6 +1087,7 @@ bool intInitialise(void)
 
 	// allocate the object list
 	apsObjectList.clear();
+	hciObjectAndStatsButtonsVec.clear();
 	objReseachButtonVec.clear();
 	objObjectButtonVec.clear();
 
@@ -946,6 +1161,7 @@ void interfaceShutDown(void)
 	free(apsComponentList);
 	free(apsExtraSysList);
 	apsObjectList.clear();
+	hciObjectAndStatsButtonsVec.clear();
 	objReseachButtonVec.clear();
 	objObjectButtonVec.clear();
 	psObjSelected = nullptr;
@@ -2688,75 +2904,6 @@ static void intStopStructPosition(void)
 	kill3DBuilding();
 }
 
-class wzRenderingWrapper
-{
-	GLint last_texture;
-	GLint last_program;
-	GLboolean last_enable_blend;
-	GLboolean last_enable_scissor_test;
-	GLboolean last_enable_depth_test;
-
-	void PushRenderState()
-	{
-		glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
-		glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
-		last_enable_blend = glIsEnabled(GL_BLEND);
-		last_enable_scissor_test = glIsEnabled(GL_SCISSOR_TEST);
-		last_enable_depth_test = glIsEnabled(GL_DEPTH_TEST);
-		glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
-	}
-
-	void PopRenderState()
-	{
-		glPopClientAttrib();
-
-		if (last_enable_depth_test)
-			glEnable(GL_DEPTH_TEST);
-		else
-			glDisable(GL_DEPTH_TEST);
-
-		if (last_enable_scissor_test)
-			glEnable(GL_SCISSOR_TEST);
-		else
-			glDisable(GL_SCISSOR_TEST);
-
-		glBindTexture(GL_TEXTURE_2D, last_texture);
-		// Nudge WZ to invalidate texture binding
-		pie_SetTexturePage(TEXPAGE_EXTERN);
-
-		glUseProgram(last_program);
-
-		if (last_enable_blend)
-			glEnable(GL_BLEND);
-		else
-			glDisable(GL_BLEND);
-
-		// Nudge WZ to invalidate render mode
-		pie_SetRendMode(REND_DUMMY);
-	}
-
-public:
-	wzRenderingWrapper() {PushRenderState();};
-	~wzRenderingWrapper() {PopRenderState();};
-};
-
-struct strWzRender
-{
-	static void cbDrawResearchButton(const ImDrawList*, const ImDrawCmd* cmd)
-	{
-		wzRenderingWrapper old_state;
-		IntButtonForResearch* resbtn = static_cast<IntButtonForResearch*>(cmd->UserCallbackData);
-		resbtn->doDrawing();
-	}
-
-	static void cbDrawObjectButton(const ImDrawList*, const ImDrawCmd* cmd)
-	{
-		wzRenderingWrapper old_state;
-		IntButtonForObject* objbtn = static_cast<IntButtonForObject*>(cmd->UserCallbackData);
-		objbtn->doDrawing();
-	}
-};
-
 uint hciDoReticuleForm()
 {
 	ImGuiIO& io = ImGui::GetIO();
@@ -2934,6 +3081,9 @@ void intDisplayWidgets(void)
 				       continue; // Don't add the button if the objects dead.
 				}
 
+				ImGui::Wz::ObjectAndStatsButtons* btns = hciObjectAndStatsButtonsVec[i].get();
+				float obj_frac = 0.f;
+
 				lclStats = objGetStatsFunc(lclObj);
 				wasLMBClicked = false;
 
@@ -2943,79 +3093,20 @@ void intDisplayWidgets(void)
 				case OBJ_DROID:
 					lclDroid = (DROID *)lclObj;
 
-					ImGui::BeginGroup();
-					ImGui::PushID(lclDroid->id);
-
-					if (ImGui::BeginChild("##droid_top", but_sz, false, ImGuiWindowFlags_NoDecoration))
+					if (lclDroid->droidType == DROID_CONSTRUCT ||
+						lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
 					{
-						if (lclObj->selected)
-							ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_ButtonActive]);
+						lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
+						ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
+						ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
+							lclCompIndex, numConstructStats);
+						lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
 
-						wasLMBClicked = ImGui::Button("", but_sz);
-
-						if (lclObj->selected)
-							ImGui::PopStyleColor();
-					}
-					ImGui::EndChild();
-					if (ImGui::IsItemHovered())
-					{
-						// Mouse clicks
-						if (wasLMBClicked)
-							intObjStatLMBPressed(lclObj);
-
-						// Tooltip
-						if (!!lclStats)
-						{
-							ImGui::BeginTooltip();
-							ImGui::Text("%s", getName(lclStats));
-							ImGui::EndTooltip();
-						}
+						 obj_frac = (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
+									      lclDroid->player) / WBAR_SCALE;
 					}
 
-					if (ImGui::BeginChild("##droid_btm", but_sz, false, ImGuiWindowFlags_NoDecoration))
-					{
-						wasLMBClicked = ImGui::Button("", but_sz);
-
-						if (lclDroid->droidType == DROID_CONSTRUCT ||
-							lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
-						{
-							lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
-							ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
-							ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
-								lclCompIndex, numConstructStats);
-							lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
-
-							float frac = (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
-										      lclDroid->player) / WBAR_SCALE;
-							ImGui::Wz::AddPBarForObjectButton(but_sz, frac);
-						}
-
-						// Draw droid
-						IntButtonForObject* btn = objObjectButtonVec[i].get();
-						ImVec2 cur_pos = ImGui::GetWindowPos();
-						btn->updateTopic(lclObj);
-						btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
-							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-						ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawObjectButton,
-									static_cast<void*>(btn));
-					}
-					ImGui::EndChild();
-					if (ImGui::IsItemHovered())
-					{
-						// Mouse clicks
-						if (ImGui::IsMouseClicked(1))
-							intObjectRMBPressed(lclObj);
-
-						// Tooltip
-						ImGui::BeginTooltip();
-						ImGui::Text("%s", droidGetName(lclDroid));
-						ImGui::EndTooltip();
-					}
-
-					ImGui::PopID();
-					ImGui::EndGroup();
-					ImGui::SameLine();
-
+					btns->DoUI(but_sz, obj_frac);
 					break;
 
 				case OBJ_STRUCTURE:
@@ -3079,7 +3170,7 @@ void intDisplayWidgets(void)
 							btn->updateTopic(lclResearchTopic);
 							btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 								    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-							ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawResearchButton,
+							ImGui::GetWindowDrawList()->AddCallback(ImGui::Wz::ButtonRenderer::cbDrawResearchButton,
 										static_cast<void*>(btn));
 						}
 					}
@@ -3122,7 +3213,7 @@ void intDisplayWidgets(void)
 						btn->updateTopic(lclObj);
 						btn->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-						ImGui::GetWindowDrawList()->AddCallback(strWzRender::cbDrawObjectButton,
+						ImGui::GetWindowDrawList()->AddCallback(ImGui::Wz::ButtonRenderer::cbDrawObjectButton,
 									static_cast<void*>(btn));
 
 						// Draw power bar
@@ -3169,7 +3260,9 @@ void intDisplayWidgets(void)
 			ImGui::PopStyleVar();
 		}
 
-		ImGui::End();
+		// Reactions
+		for (auto& btns: hciObjectAndStatsButtonsVec)
+			btns.get()->DoPostUI();
 	}
 }
 
@@ -3392,6 +3485,9 @@ static unsigned rebuildFactoryListAndFindIndex(STRUCTURE *psBuilding)
 
 	// order the list
 	orderFactories();
+
+	ReadjustObjectAndStatsButtonsVecToObjects();
+
 	// now look thru the list to see which one corresponds to the factory that has just finished
 	return std::find(apsObjectList.begin(), apsObjectList.end(), psBuilding) - apsObjectList.begin();
 }
@@ -3585,6 +3681,8 @@ static bool intAddObjectWindow(BASE_OBJECT *psObjects, BASE_OBJECT *psSelected, 
 
 	//order the objects according to what they are
 	orderObjectInterface();
+
+	ReadjustObjectAndStatsButtonsVecToObjects();
 
 	// set the selected object if necessary
 	if (psSelected == NULL)
@@ -5002,7 +5100,6 @@ static void intObjectRMBPressed(UDWORD id)
 static void intObjStatRMBPressed(UDWORD id)
 {
 	BASE_OBJECT		*psObj;
-	STRUCTURE		*psStructure;
 
 	ASSERT_OR_RETURN(, id - IDOBJ_STATSTART < apsObjectList.size(), "Invalid stat id");
 
@@ -5012,6 +5109,16 @@ static void intObjStatRMBPressed(UDWORD id)
 	{
 		return;
 	}
+
+}
+
+static void intObjStatRMBPressed(BASE_OBJECT *psObj)
+{
+	STRUCTURE		*psStructure;
+
+	if (!psObj)
+		return;
+
 	intResetWindows(psObj);
 	if (psObj->type == OBJ_STRUCTURE)
 	{
