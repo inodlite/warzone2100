@@ -795,7 +795,7 @@ namespace ImGui {
 				refreshObject();
 			}
 
-			void DoUI(const ImVec2& but_sz, const float obj_frac);
+			void DoUI(const ImVec2& but_sz);
 			void DoPostUI();
 			void refreshObject()
 			{
@@ -815,6 +815,9 @@ namespace ImGui {
 			bool wasRMBClicked(btnType type) {return butClickState[static_cast<uint>(type * 2 + 1)];}
 			void setLMBClicked(btnType type, bool clicked) {butClickState[static_cast<uint>(type * 2)] = clicked;}
 			void setRMBClicked(btnType type, bool clicked) {butClickState[static_cast<uint>(type * 2 + 1)] = clicked;}
+
+			float getPBarFraction(btnType type);
+			const char *getTooltipText(btnType type);
 
 			size_t objListIdx;
 			std::bitset<btnCOUNT * 2> butClickState;
@@ -837,7 +840,61 @@ namespace ImGui {
 				intObjectRMBPressed(psObj);
 		}
 
-		void ObjectAndStatsButtons::DoUI(const ImVec2& but_sz, const float obj_frac)
+		float ObjectAndStatsButtons::getPBarFraction(ObjectAndStatsButtons::btnType type)
+		{
+			BASE_OBJECT *psObj = getObject();
+			DROID *lclDroid;
+			int lclCompIndex;
+			BASE_STATS *lclStats;
+
+			switch (psObj->type)
+			{
+			case OBJ_DROID:
+				lclDroid = (DROID *)psObj;
+
+				if (type == btnObj)
+				{
+					if (lclDroid->droidType == DROID_CONSTRUCT ||
+							lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
+					{
+						lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
+						ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
+						ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
+						       lclCompIndex, numConstructStats);
+						lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
+
+						return (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
+										lclDroid->player) / WBAR_SCALE;
+					}
+				}
+			default:
+				return 0.f;
+			}
+
+			return 0.f;
+		}
+
+		const char *ObjectAndStatsButtons::getTooltipText(ObjectAndStatsButtons::btnType type)
+		{
+			BASE_OBJECT *psObj = getObject();
+			DROID *lclDroid;
+
+			switch (psObj->type)
+			{
+			case OBJ_DROID:
+				lclDroid = (DROID *)psObj;
+
+				if (type == btnObj)
+				{
+					return droidGetName(lclDroid);
+				}
+			default:
+				return "";
+			}
+			return "";
+		}
+
+		void ObjectAndStatsButtons::DoUI(const ImVec2& but_sz)
 		{
 			BASE_OBJECT *psObj = getObject();
 			BASE_STATS *lclStats;
@@ -876,7 +933,7 @@ namespace ImGui {
 				setLMBClicked(btnObj, ImGui::Button("", but_sz));
 				setRMBClicked(btnObj, ImGui::IsMouseClicked(1));
 
-				ImGui::Wz::AddPBarForObjectButton(but_sz, obj_frac);
+				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnObj));
 
 				// Draw object
 				ImVec2 cur_pos = ImGui::GetWindowPos();
@@ -890,7 +947,7 @@ namespace ImGui {
 			{
 				// Tooltip
 				ImGui::BeginTooltip();
-				//ImGui::Text("%s", droidGetName(lclDroid));
+				ImGui::Text("%s", getTooltipText(btnObj));
 				ImGui::EndTooltip();
 			}
 
@@ -898,8 +955,6 @@ namespace ImGui {
 			ImGui::EndGroup();
 			ImGui::SameLine();
 		}
-
-
 	}
 }
 
@@ -3034,7 +3089,6 @@ void intDisplayWidgets(void)
 				}
 
 				ImGui::Wz::ObjectAndStatsButtons* btns = hciObjectAndStatsButtonsVec[i].get();
-				float obj_frac = 0.f;
 
 				lclStats = objGetStatsFunc(lclObj);
 				wasLMBClicked = false;
@@ -3043,22 +3097,7 @@ void intDisplayWidgets(void)
 				switch (lclObj->type)
 				{
 				case OBJ_DROID:
-					lclDroid = (DROID *)lclObj;
-
-					if (lclDroid->droidType == DROID_CONSTRUCT ||
-						lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
-					{
-						lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
-						ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
-						ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
-							lclCompIndex, numConstructStats);
-						lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
-
-						 obj_frac = (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
-									      lclDroid->player) / WBAR_SCALE;
-					}
-
-					btns->DoUI(but_sz, obj_frac);
+					btns->DoUI(but_sz);
 					break;
 
 				case OBJ_STRUCTURE:
