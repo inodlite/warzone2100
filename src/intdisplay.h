@@ -311,6 +311,8 @@ public:
 
 	void update(int x, int y, bool down, bool highlighted);
 	void resetModel();
+	virtual bool hasTopic() const = 0;
+	virtual void doDrawing(int xOffset = 0, int yOffset = 0) = 0;
 
 protected:
 	bool isDown() const {return is_down;};
@@ -340,7 +342,8 @@ class IntButtonForResearch: public IntButtonBase
 public:
 	IntButtonForResearch(RESEARCH* pRes = nullptr);
 
-	void doDrawing(int xOffset = 0, int yOffset = 0);
+	bool hasTopic() const override  {return pResearch == nullptr;};
+	void doDrawing(int xOffset = 0, int yOffset = 0) override;
 	void updateTopic(RESEARCH* pRes = nullptr) {pResearch = pRes;}
 
 private:
@@ -352,7 +355,8 @@ class IntButtonForObject: public IntButtonBase
 public:
 	IntButtonForObject(BASE_OBJECT* pObj = nullptr);
 
-	void doDrawing(int xOffset = 0, int yOffset = 0);
+	bool hasTopic() const override {return pObject == nullptr;};
+	void doDrawing(int xOffset = 0, int yOffset = 0) override;
 	void updateTopic(BASE_OBJECT* pObj = nullptr) {pObject = pObj;}
 
 private:

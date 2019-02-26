@@ -770,6 +770,13 @@ namespace ImGui {
 
 		struct ButtonRenderer
 		{
+			static void cbDrawIntButton(const ImDrawList*, const ImDrawCmd* cmd)
+			{
+				RenderingWrapper old_state;
+				IntButtonBase* intbtn = static_cast<IntButtonBase*>(cmd->UserCallbackData);
+				intbtn->doDrawing();
+			}
+
 			static void cbDrawResearchButton(const ImDrawList*, const ImDrawCmd* cmd)
 			{
 				RenderingWrapper old_state;
@@ -792,7 +799,14 @@ namespace ImGui {
 			ObjectAndStatsButtons(const size_t _objListIdx):
 				objListIdx(_objListIdx)
 			{
+				isForResearch = (getObject()->type == OBJ_STRUCTURE) &&
+					(((STRUCTURE *)getObject())->pStructureType->type == REF_RESEARCH);
 				refreshObject();
+
+				if (isForResearch)
+					imdButStats = std::unique_ptr<IntButtonBase>(new IntButtonForResearch);
+				else
+					imdButStats = std::unique_ptr<IntButtonBase>(new IntButtonForObject);
 			}
 
 			void DoUI(const ImVec2& but_sz);
@@ -801,10 +815,11 @@ namespace ImGui {
 			{
 				imdButObj.updateTopic(getObject());
 			}
+			void refreshStats();
 			void reset()
 			{
 				refreshObject();
-				imdButStats.resetModel();
+				imdButStats->resetModel();
 				imdButObj.resetModel();
 			}
 		protected:
@@ -820,8 +835,9 @@ namespace ImGui {
 			const char *getTooltipText(btnType type);
 
 			size_t objListIdx;
+			bool isForResearch;
 			std::bitset<btnCOUNT * 2> butClickState;
-			IntButtonBase imdButStats;
+			std::unique_ptr<IntButtonBase> imdButStats;
 			IntButtonForObject imdButObj;
 		};
 
@@ -840,31 +856,63 @@ namespace ImGui {
 				intObjectRMBPressed(psObj);
 		}
 
+		void ObjectAndStatsButtons::refreshStats()
+		{
+			BASE_OBJECT *psObj = getObject();
+			DROID *pDroid;
+			STRUCTURE *pStructure;
+			RESEARCH *pResearchTopic;
+
+			// shortcut
+			if (isForResearch)
+			{
+				pStructure = static_cast<STRUCTURE*>(psObj);
+				pResearchTopic = ((RESEARCH_FACILITY *)pStructure->pFunctionality)->psSubject;
+				static_cast<IntButtonForResearch*>(imdButStats.get())->
+						updateTopic(pResearchTopic);
+				return;
+			}
+
+			// todo: remove after implementing everything
+			static_cast<IntButtonForObject*>(imdButStats.get())->updateTopic(nullptr);
+
+			switch (psObj->type)
+			{
+			case OBJ_DROID:
+				pDroid = static_cast<DROID*>(psObj);
+
+				break;
+			case OBJ_STRUCTURE:
+				break;
+			default:
+				break;
+			}
+		}
+
 		float ObjectAndStatsButtons::getPBarFraction(ObjectAndStatsButtons::btnType type)
 		{
 			BASE_OBJECT *psObj = getObject();
-			DROID *lclDroid;
+			DROID *pDroid;
 			int lclCompIndex;
 			BASE_STATS *lclStats;
 
 			switch (psObj->type)
 			{
 			case OBJ_DROID:
-				lclDroid = (DROID *)psObj;
-
+				pDroid = static_cast<DROID*>(psObj);
 				if (type == btnObj)
 				{
-					if (lclDroid->droidType == DROID_CONSTRUCT ||
-							lclDroid->droidType == DROID_CYBORG_CONSTRUCT)
+					if (pDroid->droidType == DROID_CONSTRUCT ||
+							pDroid->droidType == DROID_CYBORG_CONSTRUCT)
 					{
-						lclCompIndex = lclDroid->asBits[COMP_CONSTRUCT];
-						ASSERT(lclDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
+						lclCompIndex = pDroid->asBits[COMP_CONSTRUCT];
+						ASSERT(pDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
 						ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
 						       lclCompIndex, numConstructStats);
 						lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
 
 						return (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
-										lclDroid->player) / WBAR_SCALE;
+										pDroid->player) / WBAR_SCALE;
 					}
 				}
 			default:
@@ -877,16 +925,16 @@ namespace ImGui {
 		const char *ObjectAndStatsButtons::getTooltipText(ObjectAndStatsButtons::btnType type)
 		{
 			BASE_OBJECT *psObj = getObject();
-			DROID *lclDroid;
+			DROID *pDroid;
 
 			switch (psObj->type)
 			{
 			case OBJ_DROID:
-				lclDroid = (DROID *)psObj;
+				pDroid = static_cast<DROID*>(psObj);
 
 				if (type == btnObj)
 				{
-					return droidGetName(lclDroid);
+					return droidGetName(pDroid);
 				}
 			default:
 				return "";
@@ -897,10 +945,10 @@ namespace ImGui {
 		void ObjectAndStatsButtons::DoUI(const ImVec2& but_sz)
 		{
 			BASE_OBJECT *psObj = getObject();
-			BASE_STATS *lclStats;
+			BASE_STATS *pStats;
 
 			butClickState.reset();
-			lclStats = objGetStatsFunc(psObj);
+			pStats = objGetStatsFunc(psObj);
 
 			ImGui::BeginGroup();
 			ImGui::PushID(psObj->id);
@@ -915,15 +963,28 @@ namespace ImGui {
 
 				if (psObj->selected)
 					ImGui::PopStyleColor();
+
+				// Refresh topic
+				refreshStats();
+
+				// Draw topic
+				if (imdButStats->hasTopic())
+				{
+					ImVec2 cur_pos = ImGui::GetWindowPos();
+					imdButStats->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
+					ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton,
+										static_cast<void*>(imdButStats.get()));
+				}
 			}
 			ImGui::EndChild();
 			if (ImGui::IsItemHovered())
 			{
 				// Tooltip
-				if (!!lclStats)
+				if (!!pStats)
 				{
 					ImGui::BeginTooltip();
-					ImGui::Text("%s", getName(lclStats));
+					ImGui::Text("%s", getName(pStats));
 					ImGui::EndTooltip();
 				}
 			}
