@@ -313,8 +313,6 @@ COMPONENT_STATS	**apsExtraSysList;
 
 // store the objects that are being used for the object bar
 static std::vector<BASE_OBJECT *> apsObjectList;
-static std::vector<std::unique_ptr<IntButtonForResearch> > objReseachButtonVec;
-static std::vector<std::unique_ptr<IntButtonForObject> > objObjectButtonVec;
 
 /* Flags to check whether the power bars are currently on the screen */
 static bool				powerBarUp = false;
@@ -1238,8 +1236,6 @@ bool intInitialise(void)
 	// allocate the object list
 	apsObjectList.clear();
 	hciObjectAndStatsButtonsVec.clear();
-	objReseachButtonVec.clear();
-	objObjectButtonVec.clear();
 
 	psObjSelected = nullptr;
 
@@ -1312,8 +1308,6 @@ void interfaceShutDown(void)
 	free(apsExtraSysList);
 	apsObjectList.clear();
 	hciObjectAndStatsButtonsVec.clear();
-	objReseachButtonVec.clear();
-	objObjectButtonVec.clear();
 	psObjSelected = nullptr;
 
 	psWScreen = NULL;
@@ -3391,8 +3385,6 @@ static unsigned rebuildFactoryListAndFindIndex(STRUCTURE *psBuilding)
 		}
 	}
 
-	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForObject>(objObjectButtonVec);
-
 	// order the list
 	orderFactories();
 
@@ -3564,9 +3556,6 @@ static bool intAddObjectWindow(BASE_OBJECT *psObjects, BASE_OBJECT *psSelected, 
 			apsObjectList.push_back(psObj);
 		}
 	}
-
-	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForResearch>(objReseachButtonVec);
-	ImGui::Wz::AdjustIntButtonsVecToObjects<IntButtonForObject>(objObjectButtonVec);
 
 	if (apsObjectList.empty())
 	{
