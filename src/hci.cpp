@@ -782,8 +782,6 @@ namespace ImGui {
 			ObjectAndStatusButtons(const size_t _objListIdx):
 				objListIdx(_objListIdx)
 			{
-				isForResearch = (getObject()->type == OBJ_STRUCTURE) &&
-					(((STRUCTURE *)getObject())->pStructureType->type == REF_RESEARCH);
 				refreshObject();
 			}
 
@@ -791,6 +789,8 @@ namespace ImGui {
 			void DoPostUI();
 			void refreshObject()
 			{
+				isForResearch = (getObject()->type == OBJ_STRUCTURE) &&
+					(((STRUCTURE *)getObject())->pStructureType->type == REF_RESEARCH);
 				imdButObj.updateTopic(getObject());
 			}
 			void refreshStatus();
@@ -862,7 +862,8 @@ namespace ImGui {
 					if (structureIsResearchingPending(pStructure))
 					{
 						RESEARCH *pResearchTopic = ((RESEARCH_FACILITY *)pStructure->pFunctionality)->psSubject;
-						unsigned currentPoints = asPlayerResList[selectedPlayer][pResearchTopic->index].currentPoints;
+						unsigned currentPoints = pResearchTopic ?
+								asPlayerResList[selectedPlayer][pResearchTopic->index].currentPoints : 0;
 						if (currentPoints != 0)
 							return (float)currentPoints / pResearchTopic->researchPoints;
 					}
@@ -951,12 +952,8 @@ namespace ImGui {
 				if (psObj->selected)
 					ImGui::PopStyleColor();
 
-				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnStats));
-
-				// Refresh topic
+				// Refresh and draw topic
 				refreshStatus();
-
-				// Draw topic
 				if (imdButStatus.hasTopic())
 				{
 					ImVec2 cur_pos = ImGui::GetWindowPos();
@@ -964,6 +961,9 @@ namespace ImGui {
 							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
 					ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton, &imdButStatus);
 				}
+
+				// Power bar
+				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnStats));
 			}
 			ImGui::EndChild();
 			if (ImGui::IsItemHovered())
@@ -982,13 +982,14 @@ namespace ImGui {
 				setLMBClicked(btnObj, ImGui::Button("", but_sz));
 				setRMBClicked(btnObj, ImGui::IsItemHovered() && ImGui::IsMouseClicked(1));
 
-				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnObj));
-
 				// Draw object
 				ImVec2 cur_pos = ImGui::GetWindowPos();
 				imdButObj.update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 					    ImGui::IsItemClicked(), ImGui::IsItemHovered());
 				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton, &imdButObj);
+
+				// Power bar
+				ImGui::Wz::AddPBarForObjectButton(but_sz, getPBarFraction(btnObj));
 			}
 			ImGui::EndChild();
 			if (ImGui::IsItemHovered())
