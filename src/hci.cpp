@@ -774,22 +774,7 @@ namespace ImGui {
 				IntButtonBase* intbtn = static_cast<IntButtonBase*>(cmd->UserCallbackData);
 				intbtn->doDrawing();
 			}
-
-			static void cbDrawResearchButton(const ImDrawList*, const ImDrawCmd* cmd)
-			{
-				RenderingWrapper old_state;
-				IntButtonForResearch* resbtn = static_cast<IntButtonForResearch*>(cmd->UserCallbackData);
-				resbtn->doDrawing();
-			}
-
-			static void cbDrawObjectButton(const ImDrawList*, const ImDrawCmd* cmd)
-			{
-				RenderingWrapper old_state;
-				IntButtonForObject* objbtn = static_cast<IntButtonForObject*>(cmd->UserCallbackData);
-				objbtn->doDrawing();
-			}
 		};
-
 
 		class ObjectAndStatsButtons
 		{
@@ -1031,7 +1016,7 @@ namespace ImGui {
 				ImVec2 cur_pos = ImGui::GetWindowPos();
 				imdButObj.update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 					    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawObjectButton,
+				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton,
 							static_cast<void*>(&imdButObj));
 			}
 			ImGui::EndChild();
