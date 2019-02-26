@@ -342,11 +342,11 @@ class IntButtonForResearch: public IntButtonBase
 public:
 	IntButtonForResearch(RESEARCH* pRes = nullptr);
 
-	bool hasTopic() const override  {return pResearch == nullptr;};
+	bool hasTopic() const override  {return pResearch != nullptr;};
 	void doDrawing(int xOffset = 0, int yOffset = 0) override;
 	void updateTopic(RESEARCH* pRes = nullptr) {pResearch = pRes;}
 
-private:
+protected:
 	RESEARCH* pResearch;
 };
 
@@ -355,12 +355,29 @@ class IntButtonForObject: public IntButtonBase
 public:
 	IntButtonForObject(BASE_OBJECT* pObj = nullptr);
 
-	bool hasTopic() const override {return pObject == nullptr;};
+	bool hasTopic() const override {return pObject != nullptr;};
 	void doDrawing(int xOffset = 0, int yOffset = 0) override;
 	void updateTopic(BASE_OBJECT* pObj = nullptr) {pObject = pObj;}
 
-private:
+protected:
 	BASE_OBJECT *pObject;
+};
+
+class IntButtonForStatus: public IntButtonForObject
+{
+public:
+	IntButtonForStatus(BASE_OBJECT* pObj = nullptr, BASE_STATS* pSts = nullptr);
+
+	bool hasTopic() const override {return pObject != nullptr;};
+	void doDrawing(int xOffset = 0, int yOffset = 0) override;
+	void updateTopic(BASE_OBJECT* pObj = nullptr, BASE_STATS* pSts = nullptr)
+	{
+		pObject = pObj;
+		pStats = pSts;
+	}
+
+protected:
+	BASE_STATS *pStats;
 };
 
 #endif // __INCLUDED_SRC_INTDISPLAY_H__

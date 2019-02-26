@@ -776,20 +776,15 @@ namespace ImGui {
 			}
 		};
 
-		class ObjectAndStatsButtons
+		class ObjectAndStatusButtons
 		{
 		public:
-			ObjectAndStatsButtons(const size_t _objListIdx):
+			ObjectAndStatusButtons(const size_t _objListIdx):
 				objListIdx(_objListIdx)
 			{
 				isForResearch = (getObject()->type == OBJ_STRUCTURE) &&
 					(((STRUCTURE *)getObject())->pStructureType->type == REF_RESEARCH);
 				refreshObject();
-
-				if (isForResearch)
-					imdButStats = std::unique_ptr<IntButtonBase>(new IntButtonForResearch);
-				else
-					imdButStats = std::unique_ptr<IntButtonBase>(new IntButtonForObject);
 			}
 
 			void DoUI(const ImVec2& but_sz);
@@ -798,11 +793,11 @@ namespace ImGui {
 			{
 				imdButObj.updateTopic(getObject());
 			}
-			void refreshStats();
+			void refreshStatus();
 			void reset()
 			{
 				refreshObject();
-				imdButStats->resetModel();
+				imdButStatus.resetModel();
 				imdButObj.resetModel();
 			}
 		protected:
@@ -820,11 +815,11 @@ namespace ImGui {
 			size_t objListIdx;
 			bool isForResearch;
 			std::bitset<btnCOUNT * 2> butClickState;
-			std::unique_ptr<IntButtonBase> imdButStats;
+			IntButtonForStatus imdButStatus;
 			IntButtonForObject imdButObj;
 		};
 
-		void ObjectAndStatsButtons::DoPostUI()
+		void ObjectAndStatusButtons::DoPostUI()
 		{
 			BASE_OBJECT *psObj = getObject();
 
@@ -839,45 +834,20 @@ namespace ImGui {
 				intObjectRMBPressed(psObj);
 		}
 
-		void ObjectAndStatsButtons::refreshStats()
+		void ObjectAndStatusButtons::refreshStatus()
 		{
 			BASE_OBJECT *psObj = getObject();
-			DROID *pDroid;
-			STRUCTURE *pStructure;
-			RESEARCH *pResearchTopic;
+			BASE_STATS *pStats = objGetStatsFunc(psObj);
 
-			// shortcut
-			if (isForResearch)
-			{
-				pStructure = static_cast<STRUCTURE*>(psObj);
-				pResearchTopic = ((RESEARCH_FACILITY *)pStructure->pFunctionality)->psSubject;
-				static_cast<IntButtonForResearch*>(imdButStats.get())->
-						updateTopic(pResearchTopic);
-				return;
-			}
-
-			// todo: remove after implementing everything
-			static_cast<IntButtonForObject*>(imdButStats.get())->updateTopic(nullptr);
-
-			switch (psObj->type)
-			{
-			case OBJ_DROID:
-				pDroid = static_cast<DROID*>(psObj);
-
-				break;
-			case OBJ_STRUCTURE:
-				break;
-			default:
-				break;
-			}
+			imdButStatus.updateTopic(psObj, pStats);
 		}
 
-		float ObjectAndStatsButtons::getPBarFraction(ObjectAndStatsButtons::btnType type)
+		float ObjectAndStatusButtons::getPBarFraction(ObjectAndStatusButtons::btnType type)
 		{
 			BASE_OBJECT *psObj = getObject();
 			DROID *pDroid;
 			int lclCompIndex;
-			BASE_STATS *lclStats;
+			BASE_STATS *pStats;
 			STRUCTURE *pStructure;
 
 			if (isForResearch)
@@ -913,23 +883,24 @@ namespace ImGui {
 						ASSERT(pDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
 						ASSERT(lclCompIndex < numConstructStats, "Invalid range referenced for numConstructStats, %d > %d",
 						       lclCompIndex, numConstructStats);
-						lclStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
+						pStats = (BASE_STATS *)(asConstructStats + lclCompIndex);
 
-						return (float)constructorPoints((CONSTRUCT_STATS *)lclStats,
+						return (float)constructorPoints((CONSTRUCT_STATS *)pStats,
 										pDroid->player) / WBAR_SCALE;
 					}
 				}
 			case OBJ_STRUCTURE:
 				pStructure = static_cast<STRUCTURE*>(psObj);
 				// This has to be a factory now
-				return (float)getBuildingProductionPoints(pStructure) / WBAR_SCALE;
+				if (type == btnObj)
+					return (float)getBuildingProductionPoints(pStructure) / WBAR_SCALE;
 			default:
 				break;
 			}
 			return 0.f;
 		}
 
-		const char *ObjectAndStatsButtons::getTooltipText(ObjectAndStatsButtons::btnType type)
+		const char *ObjectAndStatusButtons::getTooltipText(ObjectAndStatusButtons::btnType type)
 		{
 			BASE_OBJECT *psObj = getObject();
 			DROID *pDroid;
@@ -953,7 +924,7 @@ namespace ImGui {
 			return "";
 		}
 
-		void ObjectAndStatsButtons::DoUI(const ImVec2& but_sz)
+		void ObjectAndStatusButtons::DoUI(const ImVec2& but_sz)
 		{
 			BASE_OBJECT *psObj = getObject();
 			BASE_STATS *pStats;
@@ -969,7 +940,7 @@ namespace ImGui {
 			ImGui::BeginGroup();
 			ImGui::PushID(psObj->id);
 
-			if (ImGui::BeginChild("##stats", but_sz, false, ImGuiWindowFlags_NoDecoration))
+			if (ImGui::BeginChild("##status", but_sz, false, ImGuiWindowFlags_NoDecoration))
 			{
 				if (psObj->selected)
 					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
@@ -981,16 +952,15 @@ namespace ImGui {
 					ImGui::PopStyleColor();
 
 				// Refresh topic
-				refreshStats();
+				refreshStatus();
 
 				// Draw topic
-				if (imdButStats->hasTopic())
+				if (imdButStatus.hasTopic())
 				{
 					ImVec2 cur_pos = ImGui::GetWindowPos();
-					imdButStats->update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
+					imdButStatus.update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 							    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-					ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton,
-										static_cast<void*>(imdButStats.get()));
+					ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton, &imdButStatus);
 				}
 			}
 			ImGui::EndChild();
@@ -1016,8 +986,7 @@ namespace ImGui {
 				ImVec2 cur_pos = ImGui::GetWindowPos();
 				imdButObj.update(cur_pos.x + but_sz.x * 0.5f, cur_pos.y + but_sz.y * 0.5f,
 					    ImGui::IsItemClicked(), ImGui::IsItemHovered());
-				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton,
-							static_cast<void*>(&imdButObj));
+				ImGui::GetWindowDrawList()->AddCallback(ButtonRenderer::cbDrawIntButton, &imdButObj);
 			}
 			ImGui::EndChild();
 			if (ImGui::IsItemHovered())
@@ -1035,14 +1004,14 @@ namespace ImGui {
 	}
 }
 
-static std::vector<std::unique_ptr<ImGui::Wz::ObjectAndStatsButtons> > hciObjectAndStatsButtonsVec;
+static std::vector<std::unique_ptr<ImGui::Wz::ObjectAndStatusButtons> > hciObjectAndStatsButtonsVec;
 
 template<class T> void AdjustObjectAndStatsButtonsVecToObjects(std::vector<std::unique_ptr<T> >& vec)
 {
 	if (vec.size() < apsObjectList.size())
 	{
 		for(auto const& value: vec)
-			static_cast<ImGui::Wz::ObjectAndStatsButtons*>(value.get())->reset();
+			static_cast<ImGui::Wz::ObjectAndStatusButtons*>(value.get())->reset();
 		for(size_t i = vec.size(); i < apsObjectList.size(); ++i)
 		{
 			vec.push_back(std::unique_ptr<T>(new T(i)));
@@ -1053,13 +1022,13 @@ template<class T> void AdjustObjectAndStatsButtonsVecToObjects(std::vector<std::
 		// this will trim extra ones down or do nothing
 		vec.resize(apsObjectList.size());
 		for(auto const& value: vec)
-			static_cast<ImGui::Wz::ObjectAndStatsButtons*>(value.get())->reset();
+			static_cast<ImGui::Wz::ObjectAndStatusButtons*>(value.get())->reset();
 	}
 }
 
 void ReadjustObjectAndStatsButtonsVecToObjects()
 {
-	AdjustObjectAndStatsButtonsVecToObjects<ImGui::Wz::ObjectAndStatsButtons>(hciObjectAndStatsButtonsVec);
+	AdjustObjectAndStatsButtonsVecToObjects<ImGui::Wz::ObjectAndStatusButtons>(hciObjectAndStatsButtonsVec);
 }
 
 uint hciDoReticuleForm();

@@ -2903,3 +2903,136 @@ void IntButtonForObject::doDrawing(int xOffset, int yOffset)
 
 	doneDisplay();
 }
+
+IntButtonForStatus::IntButtonForStatus(BASE_OBJECT *pObj, BASE_STATS *pSts):
+	IntButtonForObject(pObj), pStats(pSts)
+{
+
+}
+
+void IntButtonForStatus::doDrawing(int xOffset, int yOffset)
+{
+	STRUCTURE           *Structure;
+	DROID               *Droid;
+	BASE_STATS          *Stats, *psResGraphic;
+	UDWORD              compID;
+	bool	            bOnHold = false;
+	ImdObject object;
+	Image image;
+
+	initDisplay();
+
+	switch (pObject->type)
+	{
+	case OBJ_DROID:						// If it's a droid...
+		Droid = (DROID *)pObject;
+
+		if (DroidIsBuilding(Droid))
+		{
+			Structure = DroidGetBuildStructure(Droid);
+			if (Structure)
+			{
+				object = ImdObject::Structure(Structure);
+			}
+		}
+		else if (DroidGoingToBuild(Droid))
+		{
+			Stats = DroidGetBuildStats(Droid);
+			ASSERT(Stats != NULL, "NULL Stats pointer.");
+			object = ImdObject::StructureStat(Stats);
+		}
+		else if (orderState(Droid, DORDER_DEMOLISH))
+		{
+			Stats = structGetDemolishStat();
+			ASSERT(Stats != NULL, "NULL Stats pointer.");
+			object = ImdObject::StructureStat(Stats);
+		}
+		else if (Droid->droidType == DROID_COMMAND)
+		{
+			Structure = droidGetCommandFactory(Droid);
+			if (Structure)
+			{
+				object = ImdObject::Structure(Structure);
+			}
+		}
+		break;
+
+	case OBJ_STRUCTURE:					// If it's a structure...
+		Structure = (STRUCTURE *)pObject;
+		switch (Structure->pStructureType->type)
+		{
+		case REF_FACTORY:
+		case REF_CYBORG_FACTORY:
+		case REF_VTOL_FACTORY:
+			if (StructureIsManufacturingPending(Structure))
+			{
+				object = ImdObject::DroidTemplate(FactoryGetTemplate(StructureGetFactory(Structure)));
+				bOnHold = StructureIsOnHoldPending(Structure);
+			}
+
+			break;
+
+		case REF_RESEARCH:
+			if (structureIsResearchingPending(Structure))
+			{
+				iIMDShape *shape;
+				Stats = pStats;
+				if (!Stats)
+				{
+					break;
+				}
+				bOnHold = StructureIsOnHoldPending(Structure);
+				StatGetResearchImage(Stats, &image, &shape, &psResGraphic, false);
+				if (psResGraphic)
+				{
+					// we have a Stat associated with this research topic
+					if (StatIsStructure(psResGraphic))
+					{
+						// overwrite the Object pointer
+						object = ImdObject::StructureStat(psResGraphic);
+					}
+					else
+					{
+						compID = StatIsComponent(psResGraphic);
+						if (compID != COMP_NUMCOMPONENTS)
+						{
+							// overwrite the Object pointer
+							object = ImdObject::Component(psResGraphic);
+						}
+						else
+						{
+							ASSERT(false, "Invalid Stat for research button");
+							object = ImdObject::Research(nullptr);
+						}
+					}
+				}
+				else
+				{
+					// no Stat for this research topic so just use the graphic provided
+					// if Object != NULL the there must be a IMD so set the object to
+					// equal the Research stat
+					if (shape != nullptr)
+					{
+						object = ImdObject::Research(Stats);
+					}
+				}
+			}
+			break;
+		default:
+			break;
+		}
+		break;
+
+	default:
+		ASSERT(false, "Invalid structure type");
+	}
+
+	// Render the object into the button.
+	displayIMD(image, object, xOffset, yOffset);
+
+	//need to flash the button if a factory is on hold production
+	if (bOnHold)
+	{
+		iV_DrawImage(IntImages, ((realTime / 250) % 2) == 0 ? IMAGE_BUT0_DOWN : IMAGE_BUT_HILITE, xOffset + x(), yOffset + y());
+	}
+}
