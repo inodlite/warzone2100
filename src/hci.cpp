@@ -916,9 +916,8 @@ namespace ImGui {
 					}
 				}
 			default:
-				return 0.f;
+				break;
 			}
-
 			return 0.f;
 		}
 
@@ -937,7 +936,7 @@ namespace ImGui {
 					return droidGetName(pDroid);
 				}
 			default:
-				return "";
+				break;
 			}
 			return "";
 		}
@@ -947,7 +946,12 @@ namespace ImGui {
 			BASE_OBJECT *psObj = getObject();
 			BASE_STATS *pStats;
 
+			// Clear state for post-UI
 			butClickState.reset();
+
+			if (psObj->died != 0)
+				return; // Don't add the button if the objects dead.
+
 			pStats = objGetStatsFunc(psObj);
 
 			ImGui::BeginGroup();
