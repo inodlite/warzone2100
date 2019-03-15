@@ -890,6 +890,27 @@ namespace ImGui {
 										pDroid->player) / WBAR_SCALE;
 					}
 				}
+				else
+				{
+					if (DroidIsBuilding(pDroid))
+					{
+						ASSERT(pDroid->asBits[COMP_CONSTRUCT], "Invalid droid type");
+						pStructure = DroidGetBuildStructure(pDroid);
+						if (pStructure)
+						{
+							if (pStructure->currentBuildPts != 0)
+							{
+								return (float)pStructure->currentBuildPts / pStructure->pStructureType->buildPoints;
+								/*formatTime(BarGraph, pStructure->currentBuildPts, pStructure->pStructureType->buildPoints,
+									   pStructure->lastBuildRate, _("Build Progress"));*/
+							}
+							/*else
+							{
+								formatPower(BarGraph, checkPowerRequest(pStructure), pStructure->pStructureType->powerToBuild);
+							}*/
+						}
+					}
+				}
 			case OBJ_STRUCTURE:
 				pStructure = static_cast<STRUCTURE*>(psObj);
 				// This has to be a factory now
