@@ -366,7 +366,7 @@ namespace ImGui {
 	namespace Wz {
 		void Image(const ImageDef *image, const ImVec2& size, const ImVec4& tint_col)
 		{
-			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+			ImGui::Image(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId).id()),
 				     size,
 				     ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
 					    (image->YOffset + image->Tv) * image->invTextureSize),
@@ -377,11 +377,11 @@ namespace ImGui {
 
 		void Image(const char* tex_name, const ImVec2& size, const ImVec4& tint_col)
 		{
-			ImageDef *image = iV_GetImage(QString(tex_name));
+			ImageDef *image = iV_GetImage(WzString(tex_name));
 			Image(image, size, tint_col);
 		}
 
-		void ImageHCI(const int img_id, const ImVec2& size, const ImVec4& tint_col)
+		void ImageHCI(const unsigned int img_id, const ImVec2& size, const ImVec4& tint_col)
 		{
 			ImageDef *image = &IntImages->imageDefs[img_id];
 			Image(image, size, tint_col);
@@ -389,7 +389,7 @@ namespace ImGui {
 
 		bool ImageButton(const ImageDef *image, const ImVec2& size)
 		{
-			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId)),
+			return ImGui::ImageButton(reinterpret_cast<ImTextureID>(pie_Texture(image->textureId).id()),
 					   size,
 					   ImVec2((image->XOffset + image->Tu) * image->invTextureSize,
 						  (image->YOffset + image->Tv) * image->invTextureSize),
@@ -399,11 +399,11 @@ namespace ImGui {
 
 		bool ImageButton(const char* tex_name, const ImVec2& size)
 		{
-			ImageDef *image = iV_GetImage(QString(tex_name));
+			ImageDef *image = iV_GetImage(WzString(tex_name));
 			return ImageButton(image, size);
 		}
 
-		bool ImageButtonHCI(const int img_id, const ImVec2& size)
+		bool ImageButtonHCI(const unsigned int img_id, const ImVec2& size)
 		{
 			ImageDef *image = &IntImages->imageDefs[img_id];
 			return ImageButton(image, size);

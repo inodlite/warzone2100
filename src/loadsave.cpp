@@ -684,7 +684,9 @@ success:
 bool displayLoadSave()
 {
   if (use_wzwidgets)
+  {
 	widgDisplayScreen(psRequestScreen);	// display widgets.
+  }
 	return true;
 }
 

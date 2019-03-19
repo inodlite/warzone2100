@@ -280,9 +280,9 @@ static T stepCycleDir(bool forwards, T value, T min, int inc, T max)
 
 // Cycle through options, one at a time.
 template <typename T>
-static T stepCycle(T value, T min, int inc, T max)
+static T stepCycle(T value, T min, T max)
 {
-	return stepCycleDir<T>(!mouseReleased(MOUSE_RMB), value, min, inc, max);
+	return stepCycleDir<T>(!mouseReleased(MOUSE_RMB), value, min, 1, max);
 }
 
 // Cycle through options, which are powers of two, such as [128, 256, 512, 1024, 2048].
@@ -785,7 +785,7 @@ if (use_wzwidgets)
 }
 else
 {
-	static QList<CAMPAIGN_FILE> list = readCampaignFiles();
+	static std::vector<CAMPAIGN_FILE> list = readCampaignFiles();
 	static int campaignSelection = -1;
 
 	// Top form
@@ -795,10 +795,10 @@ else
 	static auto middle_fn = [] ()
 	{
 		campaignSelection = -1;
-		for (int i = 0; i < list.size(); i++)
+		for (size_t i = 0; i < list.size(); ++i)
 		{
-			if (ImGui::Wz::ButtonFW(gettext(list[i].name.toUtf8().constData())))
-				campaignSelection = i;
+			if (ImGui::Wz::ButtonFW(gettext(list[i].name.toUtf8().c_str())))
+				campaignSelection = static_cast<int>(i);
 		}
 	};
 
@@ -2264,9 +2264,7 @@ static void cycleResolution(bool forwards)
 	auto compareEq = [&](screeninfo const &a, screeninfo const &b) { return compareKey(a) == compareKey(b); };
 
 	// Get resolutions, sorted with duplicates removed.
-	std::vector<screeninfo> modes = wzAvailableResolutions();
-	std::sort(modes.begin(), modes.end(), compareLess);
-	modes.erase(std::unique(modes.begin(), modes.end(), compareEq), modes.end());
+	std::vector<screeninfo> modes = availableResolutionsSorted();
 
 	// We can't pick resolutions if there aren't any.
 	if (modes.empty())
@@ -2286,13 +2284,63 @@ static void cycleResolution(bool forwards)
 	auto current = std::lower_bound(modes.begin(), modes.end(), config, compareLess);
 	if (current == modes.end() || !compareEq(*current, config))
 	{
-		--current;  // If current resolution doesn't exist, round down to next-highest one.
+		if (current != modes.begin())
+		{
+			--current;  // If current resolution doesn't exist, round down to next-highest one.
+		}
 	}
 
 	// Increment/decrement and loop if required.
-	current = stepCycleDir(forwards, current, modes.begin(), modes.end() - 1);
+	auto startingResolution = current;
+	bool successfulResolutionChange = false;
+	current = seqCycle(current, modes.begin(), 1, modes.end() - 1);
 
-	// Set the new width and height (takes effect on restart)
+	if (canChangeResolutionLive())
+	{
+		// Disable the ability to use the Video options menu to live-change the window size when in windowed mode.
+		// Why?
+		//	- Certain window managers don't report their own changes to window size through SDL in all circumstances.
+		//	  (For example, attempting to set a window size of 800x600 might result in no actual change when using a
+		//	   tiling window manager (ex. i3), but SDL thinks the window size has been set to 800x600. This obviously
+		//     breaks things.)
+		//  - Manual window resizing is supported (so there is no need for this functionality in the Video menu).
+		if (!wzIsFullscreen())
+			return;
+
+		while (current != startingResolution)
+		{
+			// Attempt to change the resolution
+			if (!wzChangeWindowResolution(current->screen, current->width, current->height))
+			{
+				debug(LOG_WARNING, "Failed to change active resolution from: [%d] %d x %d to: [%d] %d x %d", config.screen, config.width, config.height, current->screen, current->width, current->height);
+
+				// try the next resolution, and loop
+				current = stepCycle(current, modes.begin(), modes.end() - 1);
+				continue;
+			}
+			else
+			{
+				successfulResolutionChange = true;
+				break;
+			}
+		}
+
+		if (!successfulResolutionChange)
+			return;
+	}
+	else
+	{
+		// when live resolution changes are unavailable, check to see if the current display scale is supported at the desired resolution
+		unsigned int maxDisplayScale = wzGetMaximumDisplayScaleForWindowSize(current->width, current->height);
+		unsigned int current_displayScale = war_GetDisplayScale();
+		if (maxDisplayScale < current_displayScale)
+		{
+			// Reduce the display scale to the maximum supported for this resolution
+			war_SetDisplayScale(maxDisplayScale);
+		}
+	}
+
+	// Store the new width and height
 	war_SetScreen(current->screen);
 	war_SetWidth(current->width);
 	war_SetHeight(current->height);
@@ -2391,18 +2439,6 @@ static void doGameOptionsMenu()
 	{
 		setDifficultyLevel(static_cast<DIFFICULTY_LEVEL>(dl_idx));
 	}
-
-	ImGui::NextColumn();
-
-	ImGui::TextWrapped(_("Scroll Speed"));
-
-	ImGui::NextColumn();
-
-	static UDWORD scroll_speed_accel_min = 100;
-	static UDWORD scroll_speed_accel_max = 1600;
-
-	ImGui::SliderScalar("##sa", ImGuiDataType_U32, &scroll_speed_accel,
-			    &scroll_speed_accel_min, &scroll_speed_accel_max, "");
 
 	ImGui::NextColumn();
 
