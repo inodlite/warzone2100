@@ -122,13 +122,13 @@ namespace ImGui {
 			return ImGui::Button(label, useFullWidth);
 		}
 
-		void ImageFE(const int fe_img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1))
+		void ImageFE(const unsigned int fe_img_id, const ImVec2& size, const ImVec4& tint_col = ImVec4(1,1,1,1))
 		{
 			ImageDef *image = &FrontImages->imageDefs[fe_img_id];
 			Image(image, size, tint_col);
 		}
 
-		bool ImageButtonFE(const int fe_img_id, const ImVec2& size)
+		bool ImageButtonFE(const unsigned int fe_img_id, const ImVec2& size)
 		{
 			ImageDef *image = &FrontImages->imageDefs[fe_img_id];
 			return ImageButton(image, size);
@@ -2304,29 +2304,30 @@ static void cycleResolution(bool forwards)
 		//	   tiling window manager (ex. i3), but SDL thinks the window size has been set to 800x600. This obviously
 		//     breaks things.)
 		//  - Manual window resizing is supported (so there is no need for this functionality in the Video menu).
-		if (!wzIsFullscreen())
-			return;
-
-		while (current != startingResolution)
+		if (wzIsFullscreen())
 		{
-			// Attempt to change the resolution
-			if (!wzChangeWindowResolution(current->screen, current->width, current->height))
+			while (current != startingResolution)
 			{
-				debug(LOG_WARNING, "Failed to change active resolution from: [%d] %d x %d to: [%d] %d x %d", config.screen, config.width, config.height, current->screen, current->width, current->height);
+				// Attempt to change the resolution
+				if (!wzChangeWindowResolution(current->screen, current->width, current->height))
+				{
+					debug(LOG_WARNING, "Failed to change active resolution from: [%d] %d x %d to: [%d] %d x %d",
+					      config.screen, config.width, config.height, current->screen, current->width, current->height);
 
-				// try the next resolution, and loop
-				current = stepCycle(current, modes.begin(), modes.end() - 1);
-				continue;
+					// try the next resolution, and loop
+					current = stepCycle(current, modes.begin(), modes.end() - 1);
+					continue;
+				}
+				else
+				{
+					successfulResolutionChange = true;
+					break;
+				}
 			}
-			else
-			{
-				successfulResolutionChange = true;
-				break;
-			}
+
+			if (!successfulResolutionChange)
+				return;
 		}
-
-		if (!successfulResolutionChange)
-			return;
 	}
 	else
 	{

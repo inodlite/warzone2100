@@ -433,6 +433,8 @@ namespace ImGui {
 		bool ImageButtonHCI(const int img_id, const ImVec2& size);
 
 		void SetStyleWZ();
+
+		void doDeveloperUI();
 	}
 }
 

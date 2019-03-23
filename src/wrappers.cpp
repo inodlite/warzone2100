@@ -37,6 +37,7 @@
 #include "frontend.h"
 #include "keyedit.h"
 #include "keymap.h"
+#include "hci.h"
 #include "mission.h"
 #include "multiint.h"
 #include "multilimit.h"
@@ -171,6 +172,10 @@ TITLECODE titleLoop()
 	{
 		screen_disableMapPreview();
 	}
+
+#ifdef DEBUG
+	ImGui::Wz::doDeveloperUI();
+#endif
 
 	switch (titleMode) // run relevant title screen code.
 	{

@@ -1347,7 +1347,7 @@ INT_RETVAL intRunWidgets()
 	std::vector<unsigned> retIDs;
 	if (!bLoadSaveUp)
 	{
-		if (getDebugMappingStatus())
+		if (getWantedDebugMappingStatus(selectedPlayer))
 		    ImGui::Wz::doDeveloperUI();
 
 		WidgetTriggers const &triggers = widgRunScreen(psWScreen);
