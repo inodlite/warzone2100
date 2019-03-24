@@ -271,18 +271,11 @@ template <typename T> static T seqCycle(T value, T min, int inc, T max)
 
 // Cycle through options, one at a time.
 template <typename T>
-static T stepCycleDir(bool forwards, T value, T min, int inc, T max)
+static T seqCycleDir(bool forwards, T value, T min, int inc, T max)
 {
 	return forwards ?
 		value < max ? T(value + inc) : min :  // Cycle forwards.
 		min < value ? T(value - inc) : max;  // Cycle backwards.
-}
-
-// Cycle through options, one at a time.
-template <typename T>
-static T stepCycle(T value, T min, T max)
-{
-	return stepCycleDir<T>(!mouseReleased(MOUSE_RMB), value, min, 1, max);
 }
 
 // Cycle through options, which are powers of two, such as [128, 256, 512, 1024, 2048].
@@ -299,14 +292,6 @@ static T pow2CycleDir(bool forwards, T value, T min, T max)
 	return forwards ?
 	       value < max ? std::max<T>(1, value) * 2 : min :  // Cycle forwards.
 	       min < value ? (value / 2 > 1 ? value / 2 : 0) : max;  // Cycle backwards.
-}
-
-
-// Cycle through options, which are powers of two, such as [128, 256, 512, 1024, 2048].
-template <typename T>
-static T pow2CycleMR(T value, T min, T max)
-{
-	return pow2CycleDir<T>(!mouseReleased(MOUSE_RMB), value, min , max);
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -2295,7 +2280,7 @@ static void cycleResolution(bool forwards)
 	bool successfulResolutionChange = false;
 	current = seqCycle(current, modes.begin(), 1, modes.end() - 1);
 
-	if (canChangeResolutionLive())
+	if (wzSupportsLiveResolutionChanges())
 	{
 		// Disable the ability to use the Video options menu to live-change the window size when in windowed mode.
 		// Why?
@@ -2315,7 +2300,7 @@ static void cycleResolution(bool forwards)
 					      config.screen, config.width, config.height, current->screen, current->width, current->height);
 
 					// try the next resolution, and loop
-					current = stepCycle(current, modes.begin(), modes.end() - 1);
+					current = seqCycleDir(forwards, current, modes.begin(), 1, modes.end() - 1);
 					continue;
 				}
 				else
@@ -2685,6 +2670,13 @@ static void doMouseOptionsMenu()
 	ImGui::PopID();
 }
 
+void setAndToggleFullscreen(const bool want_fullscreen)
+{
+	war_setFullscreen(want_fullscreen);
+	if (wzSupportsLiveResolutionChanges() && (wzIsFullscreen() != want_fullscreen))
+		wzToggleFullscreen();
+}
+
 static void doVideoOptionsMenu()
 {
 	ImVec2 windowSize = ImGui::GetWindowSize();
@@ -2697,35 +2689,59 @@ static void doVideoOptionsMenu()
 	ImGui::SetColumnWidth(0, windowSize.x * 0.35f);
 	ImGui::SetColumnWidth(1, windowSize.x * 0.65f);
 
-	ImGui::TextWrapped(_("Graphics Mode*"));
+	// Fullscreen/windowed
+
+	ImGui::TextWrapped("%s", videoOptionsWindowModeLabel());
 
 	ImGui::NextColumn();
 
 	int radiobtn_val = war_getFullscreen() ? 1 : 0;
 	if (ImGui::RadioButton(_("Windowed"), &radiobtn_val, 0))
-		war_setFullscreen(false);
+		setAndToggleFullscreen(false);
 	ImGui::SameLine();
 	if (ImGui::RadioButton(_("Fullscreen"), &radiobtn_val, 1))
-		war_setFullscreen(true);
+		setAndToggleFullscreen(true);
 
+	// Resolution
 	ImGui::NextColumn();
 
-	ImGui::TextWrapped(_("Resolution*"));
+	// If live window resizing is supported & the current mode is "windowed", disable the Resolution option and add a tooltip
+	// explaining the user can now resize the window normally.
+	bool areResolutionControlsEnabled = !wzSupportsLiveResolutionChanges() || wzIsFullscreen();
+
+	if (areResolutionControlsEnabled)
+		ImGui::TextWrapped("%s", videoOptionsResolutionLabel());
+	else
+		ImGui::TextDisabled("%s", videoOptionsResolutionLabel());
 
 	ImGui::NextColumn();
 
 	ImGui::PushID("res");
 
-	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
-		cycleResolution(false);
-	ImGui::SameLine();
-	if (ImGui::ArrowButton("##right", ImGuiDir_Right))
-		cycleResolution(true);
-	ImGui::SameLine();
-	ImGui::Text("%s", videoOptionsResolutionString().c_str());
+	if (areResolutionControlsEnabled)
+	{
+		if (ImGui::ArrowButton("##al", ImGuiDir_Left))
+			cycleResolution(false);
+		ImGui::SameLine();
+		if (ImGui::ArrowButton("##ar", ImGuiDir_Right))
+			cycleResolution(true);
+		ImGui::SameLine();
+		ImGui::Text("%s", videoOptionsResolutionString().c_str());
+	}
+	else
+	{
+		ImGui::TextDisabled("%s", videoOptionsResolutionString().c_str());
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text(_("You can change the resolution by resizing the window normally. (Try dragging a corner / edge.)"));
+			ImGui::EndTooltip();
+		}
+	}
 
 	ImGui::PopID();
 
+	// Texture size
 	ImGui::NextColumn();
 
 	ImGui::TextWrapped(_("Texture size"));
@@ -2744,6 +2760,7 @@ static void doVideoOptionsMenu()
 
 	ImGui::PopID();
 
+	// Vsync
 	ImGui::NextColumn();
 
 	ImGui::TextWrapped(_("Vertical sync"));
@@ -2757,9 +2774,16 @@ static void doVideoOptionsMenu()
 		war_SetVsync(wzGetSwapInterval());
 	}
 
+	// Antialiasing
 	ImGui::NextColumn();
 
 	ImGui::TextWrapped(_("Antialiasing*"));
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		ImGui::Text(_("Warning: Antialiasing can cause crashes, especially with values > 16"));
+		ImGui::EndTooltip();
+	}
 
 	ImGui::NextColumn();
 
@@ -2776,6 +2800,23 @@ static void doVideoOptionsMenu()
 	ImGui::Text("%s", videoOptionsAntialiasingString().c_str());
 
 	ImGui::PopID();
+
+	// Display Scale
+	if (wzAvailableDisplayScales().size() > 1)
+	{
+		ImGui::NextColumn();
+
+		ImGui::TextWrapped("%s", videoOptionsDisplayScaleLabel());
+
+		ImGui::NextColumn();
+
+		ImGui::PushID("ds");
+
+
+
+		ImGui::PopID();
+	}
+
 
 	ImGui::Columns();
 
