@@ -480,6 +480,8 @@ void setDisplayScale(unsigned int displayScale)
 {
 	current_displayScale = displayScale;
 	current_displayScaleFactor = (float)displayScale / 100.f;
+	if (ImGui::GetCurrentContext() != nullptr)
+		ImGui::GetIO().FontGlobalScale = current_displayScaleFactor;
 }
 
 unsigned int wzGetCurrentDisplayScale()

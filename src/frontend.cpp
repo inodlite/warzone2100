@@ -2356,7 +2356,7 @@ static void cycleDisplayScale(bool forward)
 
 	while (current != startingDisplayScale)
 	{
-		if (canChangeResolutionLive())
+		if (wzSupportsLiveResolutionChanges())
 		{
 			// Attempt to change the display scale
 			if (!wzChangeDisplayScale(*current))
