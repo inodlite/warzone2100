@@ -1707,6 +1707,25 @@ ImFont* loadFontFromFile(const char* filename, const float basesize, const bool 
 		ImGuiIO& io = ImGui::GetIO();
 		ImFontConfig font_cfg = ImFontConfig();
 		font_cfg.FontDataOwnedByAtlas = false;
+
+		const char* language = getLanguage();
+
+		// Try to map ImGui standard ranges to language codes
+		if (strcmp(language, "zh-CN") == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
+		else if (strncmp(language, "zh", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesChineseFull();
+		else if (strncmp(language, "ru", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesCyrillic();
+		else if (strncmp(language, "ja", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesJapanese();
+		else if (strncmp(language, "ko", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesKorean();
+		else if (strncmp(language, "th", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesThai();
+		else if (strncmp(language, "vi", 2) == 0)
+			font_cfg.GlyphRanges = io.Fonts->GetGlyphRangesVietnamese();
+
 		float font_size = basesize;
 
 		if (scale2display)
