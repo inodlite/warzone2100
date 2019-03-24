@@ -476,12 +476,24 @@ std::vector<unsigned int> wzAvailableDisplayScales()
 	return std::vector<unsigned int>(wzDisplayScales, wzDisplayScales + (sizeof(wzDisplayScales) / sizeof(wzDisplayScales[0])));
 }
 
+// Scale factor used for font rasterization
+static float fonts_displayScaleFactorUsedForRaster = 1.0f;
+
 void setDisplayScale(unsigned int displayScale)
 {
 	current_displayScale = displayScale;
 	current_displayScaleFactor = (float)displayScale / 100.f;
+
+	// Adjust fonts to new factor
+	// TODO: in theory we can clear font atlas and reload at new scale,
+	// but that has to be done outside of begin/end frame, which requires some
+	// clue code. Instead we will use stretching during this session and
+	// raster fonts properly next wz run. Hopefully users are not going
+	// to change scaling often after initial setup...
 	if (ImGui::GetCurrentContext() != nullptr)
-		ImGui::GetIO().FontGlobalScale = current_displayScaleFactor;
+	{
+		ImGui::GetIO().FontGlobalScale = current_displayScaleFactor / fonts_displayScaleFactorUsedForRaster;
+	}
 }
 
 unsigned int wzGetCurrentDisplayScale()
@@ -1684,6 +1696,60 @@ void wzGetWindowResolution(int *screen, unsigned int *width, unsigned int *heigh
 	}
 }
 
+ImFont* loadFontFromFile(const char* filename, const float basesize, const bool scale2display = true)
+{
+	char *realFileData = nullptr;
+	uint32_t realFileSize = 0;
+	ImFont* font = nullptr;
+
+	if (loadFile(filename, &realFileData, &realFileSize))
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		ImFontConfig font_cfg = ImFontConfig();
+		font_cfg.FontDataOwnedByAtlas = false;
+		float font_size = basesize;
+
+		if (scale2display)
+			font_size *= current_displayScaleFactor;
+		font = io.Fonts->AddFontFromMemoryTTF(realFileData, static_cast<int>(realFileSize), font_size, &font_cfg);
+
+		free(realFileData);
+	}
+
+	return font;
+}
+
+void loadFontForImGui()
+{
+	// Load Fonts
+	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+	// - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+	// - Read 'misc/fonts/README.txt' for more instructions and details.
+	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+	//io.Fonts->AddFontDefault();
+	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+
+	fontRegular = loadFontFromFile("fonts/DejaVuSans.ttf", 16.0f);
+	if (fontRegular == nullptr)
+	{
+		debug(LOG_FATAL, "Failed to load regular font");
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+	fontBig = loadFontFromFile("fonts/DejaVuSans-Bold.ttf", 22.0f);
+	if (fontBig == nullptr)
+	{
+		debug(LOG_FATAL, "Failed to load big font");
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+	fonts_displayScaleFactorUsedForRaster = current_displayScaleFactor;
+}
+
 // This stage, we handle display mode setting
 bool wzMainScreenSetup(int antialiasing, bool fullscreen, bool vsync, bool highDPI)
 {
@@ -2034,53 +2100,15 @@ bool wzMainScreenSetup(int antialiasing, bool fullscreen, bool vsync, bool highD
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+
 	// Disable auto-settings
 	io.IniFilename = nullptr;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+
 	ImGui_ImplSDL2_InitForOpenGL(WZwindow, WZglcontext);
 	ImGui_ImplOpenGL3_Init(nullptr);
 
-	// Load Fonts
-	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-	// - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-	// - Read 'misc/fonts/README.txt' for more instructions and details.
-	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-	//io.Fonts->AddFontDefault();
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-	{
-		char *realFileData = nullptr;
-		uint32_t realFileSize = 0;
-
-		if (loadFile("fonts/DejaVuSans.ttf", &realFileData, &realFileSize))
-		{
-			ImFontConfig font_cfg = ImFontConfig();
-			font_cfg.FontDataOwnedByAtlas = false;
-			fontRegular = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 16.0f, &font_cfg);
-			free(realFileData);
-		}
-		else
-		{
-			debug(LOG_FATAL, "Failed to load regular font");
-			SDL_Quit();
-			exit(EXIT_FAILURE);
-		}
-
-		if (loadFile("fonts/DejaVuSans-Bold.ttf", &realFileData, &realFileSize))
-		{
-			ImFontConfig font_cfg = ImFontConfig();
-			font_cfg.FontDataOwnedByAtlas = false;
-			fontBig = io.Fonts->AddFontFromMemoryTTF(realFileData, realFileSize, 22.0f, &font_cfg);
-			free(realFileData);
-		}
-		else
-		{
-			debug(LOG_FATAL, "Failed to load big font");
-			SDL_Quit();
-			exit(EXIT_FAILURE);
-		}
-	}
+	loadFontForImGui();
 
 	return true;
 }
