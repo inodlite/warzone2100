@@ -500,7 +500,6 @@ bool runTitleMenu()
 
 	static auto bottom_fn = [] ()
 	{
-		ImGui::Dummy(ImVec2(1, ImGui::GetWindowHeight() * 0.025f));
 		ImVec4 colorForSmallBtn(1.00f, 0.88f, 0.3f, 1.0f);
 
 		ImGui::PushStyleColor(ImGuiCol_Text, colorForSmallBtn);
