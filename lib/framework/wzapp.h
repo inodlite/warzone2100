@@ -81,6 +81,7 @@ bool wzChangeDisplayScale(unsigned int displayScale);
 bool wzChangeWindowResolution(int screen, unsigned int width, unsigned int height);
 unsigned int wzGetMaximumDisplayScaleForWindowSize(unsigned int windowWidth, unsigned int windowHeight);
 unsigned int wzGetCurrentDisplayScale();
+float wzGetCurrentDisplayScaleFactor();
 void wzGetWindowResolution(int *screen, unsigned int *width, unsigned int *height);
 void wzSetCursor(CURSOR index);
 void wzScreenFlip();	///< Swap the graphics buffers

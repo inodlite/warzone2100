@@ -489,6 +489,11 @@ unsigned int wzGetCurrentDisplayScale()
 	return current_displayScale;
 }
 
+float wzGetCurrentDisplayScaleFactor()
+{
+	return current_displayScaleFactor;
+}
+
 void wzShowMouse(bool visible)
 {
 	SDL_ShowCursor(visible ? SDL_ENABLE : SDL_DISABLE);

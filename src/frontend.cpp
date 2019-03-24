@@ -145,15 +145,22 @@ namespace ImGui {
 
 		void LogoForm()
 		{
-			int frmW = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEW : FRONTEND_TOPFORMW;
-			int frmH = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEH : FRONTEND_TOPFORMH;
+			float frmW = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEW : FRONTEND_TOPFORMW;
+			frmW *= wzGetCurrentDisplayScaleFactor();
+			float frmH = (titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEH : FRONTEND_TOPFORMH;
+			frmH *= wzGetCurrentDisplayScaleFactor();
+
+			float frmOffsetX = (HIDDEN_FRONTEND_WIDTH * 0.5f) -
+				((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEX : FRONTEND_TOPFORMX);
+			frmOffsetX *= wzGetCurrentDisplayScaleFactor();
+			float frmOffsetY = (HIDDEN_FRONTEND_HEIGHT * 0.5f) -
+				((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEY : FRONTEND_TOPFORMY);
+			frmOffsetY *= wzGetCurrentDisplayScaleFactor();
 
 			ImGuiIO& io = ImGui::GetIO();
 
-			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - (HIDDEN_FRONTEND_WIDTH * 0.5f) +
-						       ((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEX : FRONTEND_TOPFORMX),
-						       io.DisplaySize.y * 0.5f - (HIDDEN_FRONTEND_HEIGHT * 0.5f) +
-						       ((titleMode == MULTIOPTION) ? FRONTEND_TOPFORM_WIDEY : FRONTEND_TOPFORMY)));
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - frmOffsetX,
+						       io.DisplaySize.y * 0.5f - frmOffsetY));
 			ImGui::SetNextWindowSize(ImVec2(frmW, frmH));
 
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -164,8 +171,8 @@ namespace ImGui {
 				int imgW = iV_GetImageWidth(FrontImages, IMAGE_FE_LOGO);
 				int imgH = iV_GetImageHeight(FrontImages, IMAGE_FE_LOGO);
 
-				int dstW = frmW;
-				int dstH = frmH;
+				float dstW = frmW;
+				float dstH = frmH;
 				if (imgW * dstH < imgH * dstW) // Want to set aspect ratio dstW/dstH = imgW/imgH.
 					dstW = imgW * dstH / imgH; // Too wide.
 				else if (imgW * dstH > imgH * dstW)
@@ -195,11 +202,21 @@ namespace ImGui {
 		void TitleForm(const char* form_title, const std::function< void() >& top_fn,
 			       const std::function< void() >& main_fn, const std::function< void() >& bottom_fn)
 		{
+			float frmW = FRONTEND_BOTFORMW;
+			frmW *= wzGetCurrentDisplayScaleFactor();
+			float frmH = FRONTEND_BOTFORMH;
+			frmH *= wzGetCurrentDisplayScaleFactor();
+
+			float frmOffsetX = (HIDDEN_FRONTEND_WIDTH * 0.5f) - FRONTEND_BOTFORMX;
+			frmOffsetX *= wzGetCurrentDisplayScaleFactor();
+			float frmOffsetY = (HIDDEN_FRONTEND_HEIGHT * 0.5f) - FRONTEND_BOTFORMY;
+			frmOffsetY *= wzGetCurrentDisplayScaleFactor();
+
 			ImGuiIO& io = ImGui::GetIO();
 
-			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - (HIDDEN_FRONTEND_WIDTH * 0.5f) + FRONTEND_BOTFORMX,
-						       io.DisplaySize.y * 0.5f - (HIDDEN_FRONTEND_HEIGHT * 0.5f) + FRONTEND_BOTFORMY));
-			ImGui::SetNextWindowSize(ImVec2(FRONTEND_BOTFORMW, FRONTEND_BOTFORMH));
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - frmOffsetX,
+						       io.DisplaySize.y * 0.5f - frmOffsetY));
+			ImGui::SetNextWindowSize(ImVec2(frmW, frmH));
 			ImGui::Begin("TitleMenuBottom", nullptr, ImGui::Wz::StaticWindowFlags);
 
 			ImVec2 windowSize = ImGui::GetWindowSize();
