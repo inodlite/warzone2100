@@ -2840,16 +2840,12 @@ static void doVideoOptionsMenu()
 	ImGui::NextColumn();
 
 	ImGui::TextWrapped(_("Antialiasing*"));
-	if (ImGui::IsItemHovered())
-	{
-		ImGui::BeginTooltip();
-		ImGui::Text(_("Warning: Antialiasing can cause crashes, especially with values > 16"));
-		ImGui::EndTooltip();
-	}
 
 	ImGui::NextColumn();
 
 	ImGui::PushID("aa");
+
+	ImGui::BeginGroup();
 
 	if (ImGui::ArrowButton("##left", ImGuiDir_Left))
 		war_setAntialiasing(pow2CycleDir(false, war_getAntialiasing(),
@@ -2860,6 +2856,14 @@ static void doVideoOptionsMenu()
 					      0, pie_GetMaxAntialiasing()));
 	ImGui::SameLine();
 	ImGui::Text("%s", videoOptionsAntialiasingString().c_str());
+
+	ImGui::EndGroup();
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::BeginTooltip();
+		ImGui::Text(_("Warning: Antialiasing can cause crashes, especially with values > 16"));
+		ImGui::EndTooltip();
+	}
 
 	ImGui::PopID();
 
