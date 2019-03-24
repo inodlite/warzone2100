@@ -497,8 +497,9 @@ bool runTitleMenu()
 	static auto bottom_fn = [] ()
 	{
 		ImGui::Dummy(ImVec2(1, ImGui::GetWindowHeight() * 0.025f));
+		ImVec4 colorForSmallBtn(1.00f, 0.88f, 0.3f, 1.0f);
 
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.88f, 0.3f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_Text, colorForSmallBtn);
 		if (ImGui::SmallButton(_("Official site: http://wz2100.net/")))
 			runHyperlink();
 		ImGui::PopStyleColor();
@@ -509,7 +510,7 @@ bool runTitleMenu()
 			ImGui::EndTooltip();
 		}
 
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.88f, 0.3f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_Text, colorForSmallBtn);
 		if (ImGui::SmallButton(_("Donate: http://donations.wz2100.net/")))
 			rundonatelink();
 		ImGui::PopStyleColor();
@@ -517,6 +518,17 @@ bool runTitleMenu()
 		{
 			ImGui::BeginTooltip();
 			ImGui::Text(_("Help support the project with our server costs, Click this link."));
+			ImGui::EndTooltip();
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Text, colorForSmallBtn);
+		if (ImGui::SmallButton(_("Chat with players on #warzone2100")))
+			runchatlink();
+		ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text(_("Connect to Freenode through webchat by clicking this link."));
 			ImGui::EndTooltip();
 		}
 	};
