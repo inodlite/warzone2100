@@ -2242,7 +2242,7 @@ struct TitleBitmapCache {
 	WzText modListText;
 };
 
-static void cycleResolution(bool forwards)
+static void cycleResolution(bool forward)
 {
 	auto compareKey = [](screeninfo const &x) { return std::make_tuple(x.screen, x.width, x.height); };
 	auto compareLess = [&](screeninfo const &a, screeninfo const &b) { return compareKey(a) < compareKey(b); };
@@ -2300,7 +2300,7 @@ static void cycleResolution(bool forwards)
 					      config.screen, config.width, config.height, current->screen, current->width, current->height);
 
 					// try the next resolution, and loop
-					current = seqCycleDir(forwards, current, modes.begin(), 1, modes.end() - 1);
+					current = seqCycleDir(forward, current, modes.begin(), 1, modes.end() - 1);
 					continue;
 				}
 				else
@@ -2330,6 +2330,68 @@ static void cycleResolution(bool forwards)
 	war_SetScreen(current->screen);
 	war_SetWidth(current->width);
 	war_SetHeight(current->height);
+}
+
+static void cycleDisplayScale(bool forward)
+{
+	std::vector<unsigned int> displayScales = availableDisplayScalesSorted();
+	assert(!displayScales.empty());
+
+	// Get currently-configured display scale.
+	unsigned int current_displayScale = war_GetDisplayScale();
+
+	// Find current display scale in list.
+	auto current = std::lower_bound(displayScales.begin(), displayScales.end(), current_displayScale);
+	if (current == displayScales.end() || *current != current_displayScale)
+	{
+		--current;  // If current display scale doesn't exist, round down to next-highest one.
+	}
+
+	// Increment/decrement and loop if required.
+	auto startingDisplayScale = current;
+	bool successfulDisplayScaleChange = false;
+	current = seqCycleDir(forward, current, displayScales.begin(), 1, displayScales.end() - 1);
+
+	unsigned int maxDisplayScale = wzGetMaximumDisplayScaleForWindowSize(war_GetWidth(), war_GetHeight());
+
+	while (current != startingDisplayScale)
+	{
+		if (canChangeResolutionLive())
+		{
+			// Attempt to change the display scale
+			if (!wzChangeDisplayScale(*current))
+			{
+				debug(LOG_WARNING, "Failed to change display scale from: %d to: %d", current_displayScale, *current);
+
+				// try the next display scale factor, and loop
+				current = seqCycleDir(forward, current, displayScales.begin(), 1, displayScales.end() - 1);
+				continue;
+			}
+			else
+			{
+				successfulDisplayScaleChange = true;
+				break;
+			}
+		}
+		else
+		{
+			// when live resolution changes are unavailable, check to see if the display scale is supported at the desired resolution
+			if (maxDisplayScale < *current)
+			{
+				// try the next display scale factor, and loop
+				current = seqCycleDir(forward, current, displayScales.begin(), 1, displayScales.end() - 1);
+				continue;
+			}
+			else
+			{
+				successfulDisplayScaleChange = true;
+				break;
+			}
+		}
+	}
+
+	if (successfulDisplayScaleChange)
+		war_SetDisplayScale(*current);
 }
 
 static void doAudioOptionsMenu()
@@ -2812,11 +2874,17 @@ static void doVideoOptionsMenu()
 
 		ImGui::PushID("ds");
 
+		if (ImGui::ArrowButton("##al", ImGuiDir_Left))
+			cycleDisplayScale(false);
+		ImGui::SameLine();
+		if (ImGui::ArrowButton("##ar", ImGuiDir_Right))
+			cycleDisplayScale(true);
+		ImGui::SameLine();
 
+		ImGui::Text("%s", videoOptionsDisplayScaleString().c_str());
 
 		ImGui::PopID();
 	}
-
 
 	ImGui::Columns();
 
