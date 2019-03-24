@@ -253,14 +253,16 @@ namespace ImGui {
 
 		template<tMode MODE> void TitleFormSimpleReturnFn()
 		{
-		       if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, ImVec2(MULTIOP_RETW, MULTIOP_RETH)))
-			       changeTitleMode(MODE);
-		       if (ImGui::IsItemHovered())
-		       {
-			       ImGui::BeginTooltip();
-			       ImGui::Text("%s", P_("menu", "Return"));
-			       ImGui::EndTooltip();
-		       }
+			ImVec2 btn_size(MULTIOP_RETW * wzGetCurrentDisplayScaleFactor(),
+					MULTIOP_RETH * wzGetCurrentDisplayScaleFactor());
+			if (ImGui::Wz::ImageButtonFE(IMAGE_RETURN, btn_size))
+				changeTitleMode(MODE);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text("%s", P_("menu", "Return"));
+				ImGui::EndTooltip();
+			}
 		};
 	}
 }
@@ -456,8 +458,10 @@ bool runTitleMenu()
 
 	static auto top_fn = [] ()
 	{
-		if (ImGui::Wz::ImageButtonFE(IMAGE_GAMEVERSION,
-					     ImVec2(MULTIOP_BUTW * (MULTIOP_RETH / float(MULTIOP_BUTH)), MULTIOP_RETH)))
+		ImVec2 btn_size(MULTIOP_BUTW * (MULTIOP_RETH / float(MULTIOP_BUTH)) *
+				wzGetCurrentDisplayScaleFactor(),
+				MULTIOP_RETH * wzGetCurrentDisplayScaleFactor());
+		if (ImGui::Wz::ImageButtonFE(IMAGE_GAMEVERSION, btn_size))
 			runUpgrdHyperlink();
 		if (ImGui::IsItemHovered())
 		{
