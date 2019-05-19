@@ -53,6 +53,7 @@ struct RESEARCH : public BASE_STATS
 	UBYTE			keyTopic;			/* Flag to indicate whether in single player
 										   this topic must be explicitly enabled*/
 	std::vector<UWORD>	pPRList;		///< List of research pre-requisites
+        std::vector<UWORD>	pPosResList;		///< List of research possibilities
 	std::vector<UWORD>	pStructList;		///< List of structures that when built would enable this research
 	std::vector<UWORD>	pRedStructs;		///< List of Structures that become redundant
 	std::vector<COMPONENT_STATS *> pRedArtefacts;	///< List of Artefacts that become redundant
@@ -67,7 +68,9 @@ struct RESEARCH : public BASE_STATS
 	iIMDShape		*pIMD2;		/* the 2nd IMD for base plates/turrets*/
 	int index;		///< Unique index for this research, set incrementally
 
-	RESEARCH() : pViewData(NULL), iconID(0), psStat(NULL), pIMD(NULL), pIMD2(NULL) {}
+        uint level;
+
+        RESEARCH() : pViewData(NULL), iconID(0), psStat(NULL), pIMD(NULL), pIMD2(NULL), level(0) {}
 };
 
 struct PLAYER_RESEARCH

@@ -125,6 +125,7 @@ extern bool selfRepairEnabled(UBYTE player);
 
 extern SDWORD	mapRIDToIcon(UDWORD rid);
 extern SDWORD	mapIconToRID(UDWORD iconID);
+extern const char* mapRIDToDisplayName(UWORD rid);
 
 /*puts research facility on hold*/
 extern void holdResearch(STRUCTURE *psBuilding, QUEUE_MODE mode);
@@ -141,6 +142,8 @@ void CancelAllResearch(UDWORD pl);
 extern bool researchInitVars(void);
 
 bool researchAvailable(int inc, int playerID, QUEUE_MODE mode);
+
+extern bool isResearchCompletedOrAvailable(int inc, int playerID);
 
 struct AllyResearch
 {

@@ -102,6 +102,16 @@ bool researchInitVars(void)
 	return true;
 }
 
+void calcReseachLevelRecursively(RESEARCH * res, uint newlevel)
+{
+	res->level = std::max(newlevel, res->level);
+	for (size_t i = 0; i < res->pPosResList.size(); ++i)
+	{
+		calcReseachLevelRecursively(&asResearch[res->pPosResList[i]],
+				res->level + 1);
+	}
+};
+
 /** Load the research stats */
 bool loadResearch(QString filename)
 {
@@ -344,10 +354,72 @@ bool loadResearch(QString filename)
 			if (preResItem != NULL)
 			{
 				asResearch[inc].pPRList.push_back(preResItem->index);
+				asResearch[preResItem->index].pPosResList.push_back(inc);
 			}
 		}
 	}
 
+	// work out some math
+	for (size_t inc = 0; inc < asResearch.size(); ++inc)
+	{
+		if (asResearch[inc].pPRList.empty())
+			calcReseachLevelRecursively(&asResearch[inc], 0);
+	}
+
+	return true;
+}
+
+bool isResearchCompletedOrAvailable(int inc, int playerID)
+{
+	if (IsResearchPossible(&asPlayerResList[playerID][inc]) ||
+		IsResearchCompleted(&asPlayerResList[playerID][inc]))
+	{
+		return true;
+	}
+
+	UDWORD idx;
+	bool bFound;
+
+	// if there aren't any PR's - can't see it without possible flag being set
+	if (asResearch[inc].pPRList.empty())
+	{
+		return false;
+	}
+
+	// check for pre-requisites
+	bFound = true;
+	for (idx = 0; idx < asResearch[inc].pPRList.size(); idx++)
+	{
+		if (IsResearchCompleted(&(asPlayerResList[playerID][asResearch[inc].pPRList[idx]])) == 0)
+		{
+			// if haven't pre-requisite - quit checking rest
+			bFound = false;
+			break;
+		}
+	}
+	if (!bFound)
+	{
+		// if haven't pre-requisites, skip the rest of the checks
+		return false;
+	}
+
+	// check for structure effects
+	for (idx = 0; idx < asResearch[inc].pStructList.size(); idx++)
+	{
+		if (!checkSpecificStructExists(asResearch[inc].pStructList[idx], playerID))
+		{
+			//if not built, quit checking
+			bFound = false;
+			break;
+		}
+	}
+	if (!bFound)
+	{
+		// if haven't all structs built, skip to next topic
+		return false;
+	}
+
+	// can do
 	return true;
 }
 
@@ -869,6 +941,78 @@ static UWORD setIconID(char *pIconName, const char *pName)
 	ASSERT(false, "Invalid icon graphic %s for topic %s", pIconName, pName);
 
 	return NO_RESEARCH_ICON;	// Should never get here.
+}
+
+const char* mapRIDToDisplayName(UWORD rid)
+{
+	switch (rid)
+	{
+	case RID_ROCKET:
+		return _("Rocket");
+		break;
+	case RID_CANNON:
+		return _("Cannon");
+		break;
+	case RID_HOVERCRAFT:
+		return _("Hovercraft");
+		break;
+	case RID_ECM:
+		return _("ECM");
+		break;
+	case RID_PLASCRETE:
+		return _("Plascrete");
+		break;
+	case RID_TRACKS:
+		return _("Tracks");
+		break;
+	case RID_DROIDTECH:
+		return _("Droid");
+		break;
+	case RID_WEAPONTECH:
+		return _("Weapon");
+		break;
+	case RID_COMPUTERTECH:
+		return _("Computer");
+		break;
+	case RID_POWERTECH:
+		return _("Power");
+		break;
+	case RID_SYSTEMTECH:
+		return _("System");
+		break;
+	case RID_STRUCTURETECH:
+		return _("Structure");
+		break;
+	case RID_CYBORGTECH:
+		return _("Cyborg");
+		break;
+	case RID_DEFENCE:
+		return _("Defence");
+		break;
+	case RID_QUESTIONMARK:
+		return _("QUESTIONMARK");
+		break;
+	case RID_GRPACC:
+		return _("ACC");
+		break;
+	case RID_GRPUPG:
+		return _("UPG");
+		break;
+	case RID_GRPREP:
+		return _("REP");
+		break;
+	case RID_GRPROF:
+		return _("ROF");
+		break;
+	case RID_GRPDAM:
+		return _("DAM");
+		break;
+
+	default:
+		ASSERT(false, "Weirdy RID mapping request");
+		return "##ERROR##";
+		break;
+	}
 }
 
 
