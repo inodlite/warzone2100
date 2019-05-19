@@ -1038,7 +1038,7 @@ static void drawTiles(iView *player)
 	//actualCameraPosition -= Vector3i(-player->p.x, 0, player->p.z);
 
 	// this also determines the length of the shadows
-	const Vector3f theSun = (viewMatrix * glm::vec4(getTheSun(), 0.f)).xyz;
+	const Vector3f theSun = (viewMatrix * glm::vec4(getTheSun(), 0.f)).xyz();
 	pie_BeginLighting(theSun);
 
 	// update the fog of war... FIXME: Remove this
@@ -1304,8 +1304,8 @@ bool clipShapeOnScreen(const iIMDShape *pIMD, const glm::mat4& viewModelMatrix, 
 	/* get the screen coordinates */
 	const float cZ = pie_RotateProject(&origin, viewModelMatrix, &center) * 0.1;
 
-	//Watermelon:added a crash protection hack...
-	if (cZ >= 0)
+	// avoid division by zero
+	if (cZ > 0)
 	{
 		radius = wsRadius / cZ * pie_GetResScalingFactor();
 	}
@@ -1625,7 +1625,7 @@ static void renderBuildOrder(DroidOrder const &order, STRUCT_STATES state)
 			return;
 		}
 		stats = getModuleStat(structure);
-		pos = structure->pos.xy;
+		pos = structure->pos.xy();
 	}
 	else
 	{
@@ -1859,7 +1859,7 @@ void setViewPos(UDWORD x, UDWORD y, WZ_DECL_UNUSED bool Pan)
 /// Get the player position
 Vector2i getPlayerPos()
 {
-	return player.p.xz;
+	return player.p.xz();
 }
 
 /// Set the player position
@@ -1900,7 +1900,7 @@ void	renderFeature(FEATURE *psFeature, const glm::mat4 &viewMatrix)
 	psFeature->sDisplay.frameNumber = currentGameFrame;
 
 	/* Daft hack to get around the oil derrick issue */
-	if (!TileHasFeature(mapTile(map_coord(psFeature->pos.xy))))
+	if (!TileHasFeature(mapTile(map_coord(psFeature->pos.xy()))))
 	{
 		return;
 	}
@@ -2362,7 +2362,8 @@ void renderStructure(STRUCTURE *psStructure, const glm::mat4 &viewMatrix)
 	}
 	else
 	{
-		pieFlag = pie_STATIC_SHADOW | ecmFlag;
+		// structures can be rotated, so use a dynamic shadow for them
+		pieFlag = pie_SHADOW | ecmFlag;
 		pieFlagData = 0;
 	}
 
@@ -3252,8 +3253,8 @@ void calcScreenCoords(DROID *psDroid, const glm::mat4 &viewMatrix)
 	/* get the screen coordinates */
 	const float cZ = pie_RotateProject(&origin, viewMatrix, &center) * 0.1;
 
-	//Watermelon:added a crash protection hack...
-	if (cZ >= 0)
+	// avoid division by zero
+	if (cZ > 0)
 	{
 		radius = wsRadius / cZ * pie_GetResScalingFactor();
 	}
@@ -3790,7 +3791,7 @@ static void	drawDroidSensorLock(DROID *psDroid)
 }
 
 /// Draw the construction lines for all construction droids
-static	void	doConstructionLines(const glm::mat4 &viewMatrix)
+static void doConstructionLines(const glm::mat4 &viewMatrix)
 {
 	for (unsigned i = 0; i < MAX_PLAYERS; i++)
 	{
@@ -3825,41 +3826,66 @@ static	void	doConstructionLines(const glm::mat4 &viewMatrix)
 	}
 }
 
+static uint32_t randHash(std::initializer_list<uint32_t> data) {
+	uint32_t v = 0x12345678;
+	auto shuffle = [&v](uint32_t d, uint32_t x){
+		v += d;
+		v *= x;
+		v ^= v>>15;
+		v *= 0x987decaf;
+		v ^= v>>17;
+	};
+	for (int i : data) {
+		shuffle(i, 0x7ea99999);
+	}
+	for (int i : data) {
+		shuffle(i, 0xc0ffee77);
+	}
+	return v;
+}
+
 /// Draw the construction or demolish lines for one droid
 static void addConstructionLine(DROID *psDroid, STRUCTURE *psStructure, const glm::mat4 &viewMatrix)
 {
-	Vector3f *point;
-	Vector3f pts[3];
-	int pointIndex;
+	auto deltaPlayer = Vector3f(-player.p.x, 0, player.p.z);
+	auto pt0 = Vector3f(psDroid->pos.x, psDroid->pos.z + 24, -psDroid->pos.y) + deltaPlayer;
+
+	int constructPoints = constructorPoints(asConstructStats + psDroid->asBits[COMP_CONSTRUCT], psDroid->player);
+	int amount = 800 * constructPoints * (graphicsTime - psDroid->actionStarted) / GAME_TICKS_PER_SEC;
+
 	Vector3i each;
-	PIELIGHT colour;
+	auto getPoint = [&](uint32_t c) {
+		uint32_t t = (amount + c)/1000;
+		float s = (amount + c)%1000*.001f;
+		unsigned pointIndexA = randHash({psDroid->id, psStructure->id, psDroid->actionStarted, t, c}) % psStructure->sDisplay.imd->points.size();
+		unsigned pointIndexB = randHash({psDroid->id, psStructure->id, psDroid->actionStarted, t + 1, c}) % psStructure->sDisplay.imd->points.size();
+		auto &pointA = psStructure->sDisplay.imd->points[pointIndexA];
+		auto &pointB = psStructure->sDisplay.imd->points[pointIndexB];
+		auto point = mix(pointA, pointB, s);
 
-	pts[0] = Vector3f(psDroid->pos.x - player.p.x, psDroid->pos.z + 24, -(psDroid->pos.y - player.p.z));
+		each = Vector3f(psStructure->pos.x, psStructure->pos.z, psStructure->pos.y)
+			+ Vector3f(point.x, structHeightScale(psStructure) * point.y, -point.z);
+		return Vector3f(each.x, each.y, -each.z) + deltaPlayer;
+	};
 
-	pointIndex = rand() % (psStructure->sDisplay.imd->points.size() - 1);
-	point = &(psStructure->sDisplay.imd->points.at(pointIndex));
+	auto pt1 = getPoint(250);
+	auto pt2 = getPoint(750);
 
-	each.x = psStructure->pos.x + point->x;
-	each.y = psStructure->pos.z + (structHeightScale(psStructure) * point->y);
-	each.z = psStructure->pos.y - point->z;
+	if (psStructure->currentBuildPts < 10) {
+		auto pointC = Vector3f(psStructure->pos.x, psStructure->pos.z + 10, -psStructure->pos.y) + deltaPlayer;
+		auto cross = Vector3f(psStructure->pos.y - psDroid->pos.y, 0, psStructure->pos.x - psDroid->pos.x);
+		auto shift = 40.f*normalize(cross);
+		pt1 = mix(pointC - shift, pt1, psStructure->currentBuildPts*.1f);
+		pt2 = mix(pointC + shift, pt1, psStructure->currentBuildPts*.1f);
+	}
 
-	if (rand() % 250 < deltaGraphicsTime)
+	if (rand() % 250u < deltaGraphicsTime)
 	{
 		effectSetSize(30);
 		addEffect(&each, EFFECT_EXPLOSION, EXPLOSION_TYPE_SPECIFIED, true, getImdFromIndex(MI_PLASMA), 0);
 	}
 
-	pts[1] = Vector3f(each.x - player.p.x, each.y, -(each.z - player.p.z));
-
-	pointIndex = rand() % (psStructure->sDisplay.imd->points.size() - 1);
-	point = &(psStructure->sDisplay.imd->points.at(pointIndex));
-
-	each.x = psStructure->pos.x + point->x;
-	each.y = psStructure->pos.z + (structHeightScale(psStructure) * point->y);
-	each.z = psStructure->pos.y - point->z;
-
-	pts[2] = Vector3f(each.x - player.p.x, each.y, -(each.z - player.p.z));
-
-	colour = (psDroid->action == DACTION_DEMOLISH) ? WZCOL_DEMOLISH_BEAM : WZCOL_CONSTRUCTOR_BEAM;
-	pie_TransColouredTriangle({ pts[0], pts[1], pts[2] }, colour, viewMatrix);
+	PIELIGHT colour = psDroid->action == DACTION_DEMOLISH? WZCOL_DEMOLISH_BEAM : WZCOL_CONSTRUCTOR_BEAM;
+	pie_TransColouredTriangle({pt0, pt1, pt2}, colour, viewMatrix);
+	pie_TransColouredTriangle({pt0, pt2, pt1}, colour, viewMatrix);
 }

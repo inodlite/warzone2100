@@ -7,11 +7,11 @@
 1. **macOS 10.12+**
     - While building may work on prior versions of macOS, it is only tested on macOS 10.12+.
 
-2. **Xcode 8 / 9**
+2. **Xcode 8 / 9 / 10**
     - If you do not have Xcode 8.3+ you can get it for free at the [Mac App Store](https://itunes.apple.com/us/app/xcode/id497799835?mt=12) or [Apple's website](http://developer.apple.com/technology/xcode.html).
 
-3. **CMake 3.11.3+** (required to generate the Xcode project)
-    - If you do not have CMake 3.11+, you can [download the latest stable version for free at CMake.org](https://cmake.org/download/#latest).
+3. **CMake 3.14.1+** (required to generate the Xcode project)
+    - If you do not have CMake 3.14+, you can [download the latest stable version for free at CMake.org](https://cmake.org/download/#latest).
 
 4. **Gettext** (required to compile the translations and language files)
     - If you have [Homebrew](https://brew.sh) installed, you can use the following command in Terminal:
@@ -51,9 +51,9 @@ Generating the macOS port's build environment & configuration requires the follo
 To set the minimum deployment target used for _vcpkg_ **and** the CMake-generated Xcode project,
 execute the following command in the same Terminal session used for later commands:
 
-1. Export minimum deployment target (example: macOS 10.9):
+1. Export minimum deployment target (example: macOS 10.10):
    ```shell
-   export MACOSX_DEPLOYMENT_TARGET=10.9
+   export MACOSX_DEPLOYMENT_TARGET=10.10
    ```
 
 ### 2. Use _vcpkg_ to fetch & build dependencies
@@ -103,7 +103,7 @@ You can also simply open the project in Xcode, and build the `warzone2100` schem
 
 ## Deployment:
 
-The macOS port produces a 64-bit [self-contained application bundle](https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html#//apple_ref/doc/uid/10000123i-CH101-SW13) that requires **macOS 10.9+**\* to run.
+The macOS port produces a 64-bit [self-contained application bundle](https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html#//apple_ref/doc/uid/10000123i-CH101-SW13) that requires **macOS 10.10+**\* to run.
 
 > \* See _Setup & Configuration_ for how to set the minimum deployment target.
 

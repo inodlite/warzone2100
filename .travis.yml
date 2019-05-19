@@ -164,9 +164,10 @@ matrix:
       os: osx
       osx_image: xcode8.3
       env:
-        - MACOSX_DEPLOYMENT_TARGET=10.9
+        - MACOSX_DEPLOYMENT_TARGET=10.10
       before_install:
-        #- brew update
+        - brew update
+        - brew upgrade cmake
         - brew install gettext
         - brew install asciidoc
         - brew install docbook-xsl
@@ -175,6 +176,7 @@ matrix:
         # gcc6+ is currently required to bootstrap vcpkg on macOS
         - brew install gcc@7 || brew link --overwrite gcc@7
         - bundle install --gemfile="macosx/BuildBot/Gemfile"
+        - cmake --version
       script:
         - source build_tools/ci/travis/export_build_output_desc.sh
         - macosx/BuildBot/travis_cmake_build.sh "${WZ_BUILD_DESC_PREFIX}-" "tmp/wz_upload"
@@ -187,15 +189,17 @@ matrix:
       os: osx
       osx_image: xcode9.4
       env:
-        - MACOSX_DEPLOYMENT_TARGET=10.9
+        - MACOSX_DEPLOYMENT_TARGET=10.10
       before_install:
-        #- brew update
+        - brew update
+        - brew upgrade cmake
         - brew install gettext
         # NOTE: Specify an explicit Asciidoctor version to help ensure reproducible builds
-        - gem install asciidoctor -v 1.5.8 --no-document
+        - gem install asciidoctor -v 2.0.9 --no-document
         # gcc6+ is currently required to bootstrap vcpkg on macOS
         - brew install gcc@7 || brew link --overwrite gcc@7
         - bundle install --gemfile="macosx/BuildBot/Gemfile"
+        - cmake --version
       script:
         - source build_tools/ci/travis/export_build_output_desc.sh
         - macosx/BuildBot/travis_cmake_build.sh "${WZ_BUILD_DESC_PREFIX}-" "tmp/wz_upload"
@@ -204,20 +208,22 @@ matrix:
         - build_tools/ci/travis/travis_deploy.sh "tmp/wz_upload" "warzone2100-${WZ_BUILD_DESC_PREFIX}-*_macOS.zip" --cleanold
 
     # Build for macOS (CMake)
-    - name: "macOS (CMake) [Xcode 10.1, macOS 10.14 SDK]"
+    - name: "macOS (CMake) [Xcode 10.2, macOS 10.14 SDK]"
       language: objective-c
       os: osx
-      osx_image: xcode10.1
+      osx_image: xcode10.2
       env:
-        - MACOSX_DEPLOYMENT_TARGET=10.9
+        - MACOSX_DEPLOYMENT_TARGET=10.10
       before_install:
-        #- brew update
+        - brew update
+        - brew upgrade cmake
         - brew install gettext
         # NOTE: Specify an explicit Asciidoctor version to help ensure reproducible builds
-        - gem install asciidoctor -v 1.5.8 --no-document
+        - gem install asciidoctor -v 2.0.9 --no-document
         # gcc6+ is currently required to bootstrap vcpkg on macOS
-        - brew install gcc@7 || brew link --overwrite gcc@7
+        - brew install gcc@8 || brew link --overwrite gcc@8
         - bundle install --gemfile="macosx/BuildBot/Gemfile"
+        - cmake --version
       script:
         - source build_tools/ci/travis/export_build_output_desc.sh
         - macosx/BuildBot/travis_cmake_build.sh "${WZ_BUILD_DESC_PREFIX}-" "tmp/wz_upload"

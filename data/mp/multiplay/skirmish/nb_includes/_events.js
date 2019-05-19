@@ -1,7 +1,7 @@
 
 /*
  * This file includes event definitions only.
- * 
+ *
  */
 
 function eventStartLevel() {
@@ -56,8 +56,10 @@ function eventStructureBuilt(structure) {
 }
 
 function eventAttacked(victim, attacker) {
-	if (attacker === null)
+	if (attacker === null || victim === null)
 		return; // no idea why it happens sometimes
+	if (victim.player != me)
+		return;
 	if (isAlly(attacker.player))
 		return; // don't respond to accidental friendly fire
 	if (victim.type === DROID) {
@@ -65,12 +67,17 @@ function eventAttacked(victim, attacker) {
 			fallBack(victim, attacker);
 			setTarget(attacker, victim.group);
 			touchGroup(victim.group);
-		} else if (isVTOL(victim) && victim.player == me && !throttled(5000, victim.id)) {
-			orderDroidObj(victim, DORDER_ATTACK, attacker);
-			pushVtols(attacker);
+		}
+		else if (isVTOL(victim) &&
+			vtolCanHit(victim, attacker) &&
+			vtolArmed(victim, 1) &&
+			!throttled(5000, victim.id))
+		{
+				orderDroidObj(victim, DORDER_ATTACK, attacker);
+				pushVtols(attacker);
 		}
 	} else if (victim.type === STRUCTURE) {
-		if (throttled(5000) && victim.player != me)
+		if (throttled(5000))
 			return;
 		if (inPanic())
 			for (var i = 0; i < MAX_GROUPS; ++i)

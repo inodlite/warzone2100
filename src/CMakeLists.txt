@@ -10,6 +10,7 @@ add_custom_target(autorevision ALL
     DEPENDS
         "${CMAKE_CURRENT_BINARY_DIR}/__shouldnotexist.h"
 )
+set_property(TARGET autorevision PROPERTY FOLDER "_WZBuildProcessTargets")
 
 # Autorevision command that will run *every* build
 set(_autorevision_cache_tarball_src_input "${CMAKE_CURRENT_SOURCE_DIR}/autorevision.cache")
@@ -71,6 +72,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
 		DEPENDS
 			"${CMAKE_CURRENT_BINARY_DIR}/Warzone-Info.plist"
 	)
+	set_property(TARGET autorevision_infoplist PROPERTY FOLDER "_WZBuildProcessTargets")
 
 	add_dependencies(autorevision_infoplist autorevision) # Ensure ordering and non-concurrency
 
@@ -114,10 +116,11 @@ endif()
 
 target_link_libraries(warzone2100 exception-handler gamelib ivis-opengl netplay script sdl-backend framework sequence sound widget)
 target_link_libraries(warzone2100
+	Qt5::Core
 	Qt5::Script
 	Qt5::Gui
 	Qt5::Widgets
-	)
+)
 if(ENABLE_NLS)
 	target_link_libraries(warzone2100 "${Intl_LIBRARIES}")
 endif()
@@ -360,6 +363,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
 	endmacro()
 
 	copy_qt5_plugin("Qt5::QCocoaIntegrationPlugin")
+	copy_qt5_plugin("Qt5::QCocoaPrinterSupportPlugin")
 
 	# Set install RPATH for WZ app bundle
 	set_target_properties(warzone2100 PROPERTIES INSTALL_RPATH "@executable_path/../Frameworks")

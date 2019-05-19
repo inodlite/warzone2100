@@ -25,6 +25,9 @@
  * along with connection and game options.
  */
 
+// **NOTE: Qt headers _must_ be before platform specific headers so we don't get conflicts.
+#include <QtCore/QFileInfo> // used to strip path of challenge AI values
+
 #include "lib/framework/wzapp.h"
 #include "lib/framework/wzconfig.h"
 
@@ -97,11 +100,7 @@
 #include "levels.h"
 #include "wrappers.h"
 
-#ifndef WZ_OS_MAC
-	#include <QFileInfo> // used to strip path of challenge AI values
-#else // WZ_OS_MAC
-	#include <QtCore/QFileInfo> // used to strip path of challenge AI values
-#endif
+#include <algorithm>
 
 #define MAP_PREVIEW_DISPLAY_TIME 2500	// number of milliseconds to show map in preview
 

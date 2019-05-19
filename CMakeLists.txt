@@ -33,6 +33,10 @@ else()
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Support folders (for nicer IDE organization)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "_CMakePredefinedTargets")
+
 # Fix: Linking issues with static libraries when using certain generated project files (ex. Xcode in "Archive" build mode)
 # See: https://stackoverflow.com/questions/30318941/, https://stackoverflow.com/questions/33020245/
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "./")
@@ -128,6 +132,21 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
 	set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF" CACHE STRING "Flags used by the linker (Release builds)" FORCE)
 endif()
 
+# Treat source files as UTF-8 (unless they have a BOM) (MSVC)
+# NOTE: For MSVC, this also sets the executable character set.
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
+# Set Windows-specific defines (ex. _WIN32_WINNT)
+if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+	if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+		message( WARNING "WindowsStore builds are not currently supported" )
+		add_definitions(-D_WIN32_WINNT=0x0A00) # Windows 10+
+	else()
+		add_definitions(-D_WIN32_WINNT=0x0501) # Windows XP+
+	endif()
+endif()
+
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
@@ -173,6 +192,8 @@ macro(CONFIGURE_WZ_COMPILER_WARNINGS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w34512")
 
 		# Enable some additional MSVC warnings (that are off by default)
+		# C4005: 'identifier' : macro redefinition
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /we4005")
 		# C4191: unsafe conversion from 'type of expression' to 'type required'
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w34191")
 		# C4263: 'function': member function does not override any base class virtual member function
@@ -214,6 +235,8 @@ macro(CONFIGURE_WZ_COMPILER_WARNINGS)
 		# Disable some warnings for WZ (FIXME)
 		# C4100: unreferenced formal parameter
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
+		# C4244: 'conversion' conversion from 'type1' to 'type2', possible loss of data // FIXME!!
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244")
 		# C4456: declaration of 'identifier' hides previous local declaration
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4456")
 		# C4459: declaration of 'identifier' hides global declaration
@@ -224,6 +247,8 @@ macro(CONFIGURE_WZ_COMPILER_WARNINGS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4245")
 		# C4701: Potentially uninitialized local variable 'name' used
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4701")
+		# C4706: assignment within conditional expression
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4706")
 
 		# Qt headers (at least 5.6.x) necessitate disabling some warnings
 		# C4127: conditional expression is constant
@@ -492,6 +517,10 @@ macro(CONFIGURE_WZ_COMPILER_WARNINGS)
 		check_compiler_flags_output("-Werror -Wfloat-conversion -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "-Wfloat-conversion" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
 		check_compiler_flags_output("-Werror -Wfloat-conversion -Wno-error=cpp" COMPILER_TYPE CXX OUTPUT_FLAGS "-Wfloat-conversion" OUTPUT_VARIABLE _supported_cxx_compiler_flags APPEND)
 
+		# -Wformat-security
+		check_compiler_flags_output("-Werror -Wformat-security -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "-Wformat-security" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
+		check_compiler_flags_output("-Werror -Wformat-security -Wno-error=cpp" COMPILER_TYPE CXX OUTPUT_FLAGS "-Wformat-security" OUTPUT_VARIABLE _supported_cxx_compiler_flags APPEND)
+
 		# -Wstringop-truncation (GCC 8.0+)
 		check_compiler_flags_output("-Werror -Wstringop-truncation -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "-Wstringop-truncation" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
 		check_compiler_flags_output("-Werror -Wstringop-truncation -Wno-error=cpp" COMPILER_TYPE CXX OUTPUT_FLAGS "-Wstringop-truncation" OUTPUT_VARIABLE _supported_cxx_compiler_flags APPEND)
@@ -515,10 +544,6 @@ macro(CONFIGURE_WZ_COMPILER_WARNINGS)
 		# Handle "sign-compare" (warning-only for now)
 		check_compiler_flags_output("-Werror ${WZ_Wno_}sign-compare -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "${WZ_Wno_}sign-compare" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
 		check_compiler_flags_output("-Werror ${WZ_Wno_}sign-compare -Wno-error=cpp" COMPILER_TYPE CXX OUTPUT_FLAGS "${WZ_Wno_}sign-compare" OUTPUT_VARIABLE _supported_cxx_compiler_flags APPEND)
-
-		# Handle "format-security" (warning-only for now)
-		check_compiler_flags_output("-Werror ${WZ_Wno_}format-security -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "${WZ_Wno_}format-security" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
-		check_compiler_flags_output("-Werror ${WZ_Wno_}format-security -Wno-error=cpp" COMPILER_TYPE CXX OUTPUT_FLAGS "${WZ_Wno_}format-security" OUTPUT_VARIABLE _supported_cxx_compiler_flags APPEND)
 
 		# Disable -Wunused-parameter (FIXME)
 		check_compiler_flags_output("-Werror -Wno-unused-parameter -Wno-error=cpp" COMPILER_TYPE C   OUTPUT_FLAGS "-Wno-unused-parameter" OUTPUT_VARIABLE _supported_c_compiler_flags APPEND)
@@ -636,7 +661,9 @@ else()
 	SET(UPNPC_BUILD_SHARED OFF CACHE BOOL "miniupnpc - Build shared library" FORCE)
 	SET(UPNPC_BUILD_TESTS OFF CACHE BOOL "miniupnpc - Build tests" FORCE)
 	SET(UPNPC_BUILD_SAMPLE OFF CACHE BOOL "miniupnpc - Build samples" FORCE)
+	SET(UPNPC_NO_INSTALL TRUE CACHE BOOL "miniupnpc - Disable installation" FORCE)
 	add_subdirectory(3rdparty/miniupnp/miniupnpc)
+	set_property(TARGET libminiupnpc-static PROPERTY FOLDER "3rdparty")
 endif()
 
 add_subdirectory(3rdparty)
@@ -694,4 +721,5 @@ if(CPACK_COMMAND)
 		COMMAND ${CPACK_COMMAND} --config ${CMAKE_CURRENT_BINARY_DIR}/CPackSourceConfig.cmake
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	)
+	set_property(TARGET dist PROPERTY FOLDER "_WZAliasTargets")
 endif()

@@ -41,6 +41,8 @@
 #include "keymap.h"
 #include "keyedit.h"
 
+#include <algorithm>
+
 static UDWORD asciiKeyCodeToTable(KEY_CODE code);
 static KEY_CODE getQwertyKey();
 
@@ -232,6 +234,8 @@ static KeyMapSaveEntry const keyMapSaveTable[] =
 	{kf_SelectAllTrucks, "SelectAllTrucks"},
 	{kf_SetDroidOrderStop, "SetDroidOrderStop"},
 	{kf_SelectAllArmedVTOLs, "SelectAllArmedVTOLs"},
+	{kf_SetDroidMovePursue, "SetDroidMovePursue"},
+	{kf_SetDroidMoveGuard, "SetDroidMoveGuard"},
 };
 
 KeyMapSaveEntry const *keymapEntryByFunction(void (*function)())
@@ -380,8 +384,10 @@ void keyInitMappings(bool bForceDefaults)
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_D,      KEYMAP_PRESSED, kf_JumpToUnassignedUnits, N_("View Unassigned Units"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_E,      KEYMAP_PRESSED, kf_SetDroidAttackReturn,  N_("Return Fire"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_F,      KEYMAP_PRESSED, kf_SetDroidAttackAtWill,  N_("Fire at Will"));
+	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_G,      KEYMAP_PRESSED, kf_SetDroidMoveGuard,     N_("Guard Position"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_LSHIFT, KEY_H,      KEYMAP_PRESSED, kf_SetDroidReturnToBase,  N_("Return to HQ"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_H,      KEYMAP_PRESSED, kf_SetDroidOrderHold,     N_("Hold Position"));
+	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_P,      KEYMAP_PRESSED, kf_SetDroidMovePursue,    N_("Pursue"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_Q,      KEYMAP_PRESSED, kf_SetDroidMovePatrol,    N_("Patrol"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_R,      KEYMAP_PRESSED, kf_SetDroidGoForRepair,   N_("Return For Repair"));
 	keyAddMapping(KEYMAP_ASSIGNABLE, KEY_IGNORE, KEY_S,      KEYMAP_PRESSED, kf_SetDroidOrderStop,     N_("Stop Droid"));

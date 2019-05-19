@@ -1583,7 +1583,7 @@ STRUCTURE *buildStructureDir(STRUCTURE_STATS *pStructureType, UDWORD x, UDWORD y
 				}
 				if (fp != nullptr)
 				{
-					Vector2i pos = map_coord(fp->coords.xy);
+					Vector2i pos = map_coord(fp->coords.xy());
 					if (unsigned(pos.x - bounds.map.x) < unsigned(bounds.size.x) && unsigned(pos.y - bounds.map.y) < unsigned(bounds.size.y))
 					{
 						// Delivery point fp is under the new structure. Need to move it.
@@ -1787,7 +1787,7 @@ STRUCTURE *buildBlueprint(STRUCTURE_STATS const *psStats, Vector2i xy, uint16_t 
 	// Rotate wall if needed.
 	if (blueprint->pStructureType->type == REF_WALL || blueprint->pStructureType->type == REF_GATE)
 	{
-		WallOrientation scanType = structChooseWallTypeBlueprint(map_coord(blueprint->pos.xy));
+		WallOrientation scanType = structChooseWallTypeBlueprint(map_coord(blueprint->pos.xy()));
 		unsigned type = wallType(scanType);
 		if (scanType != WallConnectNone)
 		{
@@ -1838,7 +1838,7 @@ static bool setFunctionality(STRUCTURE	*psBuilding, STRUCTURE_TYPE functionType)
 			psFactory->psSubject = nullptr;
 
 			// Default the secondary order - AB 22/04/99
-			psFactory->secondaryOrder = DSS_REPLEV_NEVER | DSS_ALEV_ALWAYS;
+			psFactory->secondaryOrder = DSS_REPLEV_NEVER | DSS_ALEV_ALWAYS | DSS_HALT_GUARD;
 
 			// Create the assembly point for the factory
 			if (!createFlagPosition(&psFactory->psAssemblyPoint, psBuilding->player))
@@ -2234,6 +2234,10 @@ void setFactorySecondaryState(DROID *psDroid, STRUCTURE *psStructure)
 		{
 			secondarySetState(psDroid, DSO_CIRCLE, (SECONDARY_STATE)(newState & DSS_CIRCLE_MASK));
 		}
+		if ((diff & DSS_HALT_MASK) != 0)
+		{
+			secondarySetState(psDroid, DSO_HALTTYPE, (SECONDARY_STATE)(newState & DSS_HALT_MASK));
+		}
 	}
 }
 
@@ -2356,7 +2360,7 @@ static bool structPlaceDroid(STRUCTURE *psStructure, DROID_TEMPLATE *psTempl, DR
 			//if vtol droid - send it to ReArm Pad if one exists
 			if (psFlag && isVtolDroid(psNewDroid))
 			{
-				Vector2i pos = psFlag->coords.xy;
+				Vector2i pos = psFlag->coords.xy();
 				//find a suitable location near the delivery point
 				actionVTOLLandingPos(psNewDroid, &pos);
 				orderDroidLoc(psNewDroid, DORDER_MOVE, pos.x, pos.y, ModeQueue);
@@ -2498,10 +2502,15 @@ static bool checkHaltOnMaxUnitsReached(STRUCTURE *psStructure, bool isMission)
 	else switch (droidTemplateType(templ))
 		{
 		case DROID_COMMAND:
-			if (!hasBuiltCommandRelay(isMission, player) || getNumCommandDroids(player) >= getMaxCommanders(player))
+			if (!hasBuiltCommandRelay(isMission, player))
 			{
 				isLimit = true;
-				ssprintf(limitMsg, _("Can't build anymore \"%s\", Command Control Limit Reached — Production Halted"), templ->name.toUtf8().c_str());
+				ssprintf(limitMsg, _("Can't build \"%s\" without a Command Relay Center — Production Halted"), templ->name.toUtf8().c_str());
+			}
+			else if (getNumCommandDroids(player) >= getMaxCommanders(player))
+			{
+				isLimit = true;
+				ssprintf(limitMsg, _("Can't build \"%s\", Commander Limit Reached — Production Halted"), templ->name.toUtf8().c_str());
 			}
 			break;
 		case DROID_CONSTRUCT:
@@ -2516,7 +2525,7 @@ static bool checkHaltOnMaxUnitsReached(STRUCTURE *psStructure, bool isMission)
 			break;
 		}
 
-	if (isLimit && player == selectedPlayer && lastMaxUnitMessage + MAX_UNIT_MESSAGE_PAUSE < gameTime)
+	if (isLimit && player == selectedPlayer && (lastMaxUnitMessage == 0 || lastMaxUnitMessage + MAX_UNIT_MESSAGE_PAUSE <= gameTime))
 	{
 		addConsoleMessage(limitMsg, DEFAULT_JUSTIFY, SYSTEM_MESSAGE);
 		lastMaxUnitMessage = gameTime;
@@ -3998,7 +4007,7 @@ bool validLocation(BASE_STATS *psStats, Vector2i pos, uint16_t direction, unsign
 		for (FLAG_POSITION const *psCurrFlag = apsFlagPosLists[selectedPlayer]; psCurrFlag; psCurrFlag = psCurrFlag->psNext)
 		{
 			ASSERT_OR_RETURN(false, psCurrFlag->coords.x != ~0, "flag has invalid position");
-			Vector2i flagTile = map_coord(psCurrFlag->coords.xy);
+			Vector2i flagTile = map_coord(psCurrFlag->coords.xy());
 			if (flagTile.x >= b.map.x && flagTile.x < b.map.x + b.size.x && flagTile.y >= b.map.y && flagTile.y < b.map.y + b.size.y)
 			{
 				return false;
@@ -5000,7 +5009,7 @@ bool calcStructureMuzzleBaseLocation(const STRUCTURE *psStructure, Vector3i *muz
 		         -psShape->connectors[weapon_slot].y);//note y and z flipped
 
 
-		*muzzle = (af * barrel).xzy;
+		*muzzle = (af * barrel).xzy();
 		muzzle->z = -muzzle->z;
 	}
 	else
@@ -5068,7 +5077,7 @@ bool calcStructureMuzzleLocation(const STRUCTURE *psStructure, Vector3i *muzzle,
 			barrel = Vector3i(psWeaponImd->connectors[connector_num].x, -psWeaponImd->connectors[connector_num].z, -psWeaponImd->connectors[connector_num].y);
 		}
 
-		*muzzle = (af * barrel).xzy;
+		*muzzle = (af * barrel).xzy();
 		muzzle->z = -muzzle->z;
 	}
 	else
@@ -5444,7 +5453,7 @@ void printStructureInfo(STRUCTURE *psStructure)
 		    && psStructure->pStructureType->pSensor->location == LOC_TURRET)
 		{
 			unsigned int assigned_droids = countAssignedDroids(psStructure);
-			console(ngettext("%s - %u Unit assigned - Damage %3.0f%%", "%s - %u Units assigned - Hitpoints %d/%d", assigned_droids),
+			console(ngettext("%s - %u Unit assigned - Damage %d/%d", "%s - %u Units assigned - Hitpoints %d/%d", assigned_droids),
 			        getName(psStructure->pStructureType), assigned_droids, psStructure->body, structureBody(psStructure));
 		}
 		else
@@ -7013,7 +7022,7 @@ void cbNewDroid(STRUCTURE *psFactory, DROID *psDroid)
 StructureBounds getStructureBounds(const STRUCTURE *object)
 {
 	const Vector2i size = object->size();
-	const Vector2i map = map_coord(object->pos.xy) - size / 2;
+	const Vector2i map = map_coord(object->pos.xy()) - size / 2;
 	return StructureBounds(map, size);
 }
 

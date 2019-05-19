@@ -1,7 +1,7 @@
 
 /*
  * This file contain functions for manipulating stats defined by rulesets.
- * 
+ *
  */
 
 (function(_global) {
@@ -190,6 +190,7 @@ _global.weaponStatsToResList = function(path, objType) {
 			statsToResList(path.defenses),
 			statsToResList(path.vtols)
 		);
+	ret.concat(path.extras);
 	return ret;
 }
 

@@ -175,8 +175,8 @@ function regroup(gr) {
 	if (ret.maxCount === 0)
 		return [];
 	for (var i = 0; i < ret.clusters.length; ++i)
-		if (i !== ret.maxIdx) 
-			for (var j = 0; j < ret.clusters[i].length; ++j) 
+		if (i !== ret.maxIdx)
+			for (var j = 0; j < ret.clusters[i].length; ++j)
 				orderDroidLoc(ret.clusters[i][j], DORDER_MOVE, ret.xav[ret.maxIdx], ret.yav[ret.maxIdx]);
 	if (ret.maxCount < size) {
 		for (var j = 0; j < ret.clusters[ret.maxIdx].length; ++j) {
@@ -231,12 +231,14 @@ function attackTarget(droid) {
 	if (defined(target))
 		switch (target.type) {
 			case DROID:
-				if (droid.canHitGround === true && !isVTOL(target))
+				if (droid.droidType === DROID_SENSOR)
+					orderDroidObj(droid, DORDER_OBSERVE, target);
+				else if (droid.canHitGround === true && !isVTOL(target))
 					orderDroidObj(droid, DORDER_ATTACK, target);
 				else if(droid.canHitAir === true && isVTOL(target))
 					orderDroidObj(droid, DORDER_ATTACK, target);
 				else
-					orderDroidObj(droid, DORDER_OBSERVE, target);
+					orderDroidLoc(droid, DORDER_SCOUT, target.x, target.y);
 				break;
 			case FEATURE:
 				orderDroidObj(droid, DORDER_RECOVER, target);
@@ -251,13 +253,6 @@ function attackTarget(droid) {
 				orderDroidLoc(droid, DORDER_SCOUT, target.x, target.y);
 				break;
 		}
-}
-
-function vtolCanHit(droid, obj) {
-	if (typeof(obj) === DROID && isVTOL(obj))
-		return droid.canHitAir;
-	else
-		return droid.canHitGround;
 }
 
 function pickVtolTarget(droid) {
@@ -283,17 +278,6 @@ function pickVtolTarget(droid) {
 	return cached(uncached, 100, droid.canHitAir + 2 * droid.canHitGround);
 }
 
-function vtolArmed(obj, percent) {
-	if (obj.type != DROID)
-		return;
-	if (!isVTOL(obj))
-		return false;
-	for (var i = 0; i < obj.weapons.length; ++i)
-		if (obj.weapons[i].armed >= 99)
-			return true;
-	return false;
-}
-
 function vtolReady(droid) {
 	if (droid.order == DORDER_ATTACK)
 		return false;
@@ -303,6 +287,24 @@ function vtolReady(droid) {
 		orderDroid(droid, DORDER_REARM);
 		buildVtols() // actually pads
 	}
+	return false;
+}
+
+_global.vtolCanHit = function(droid, obj) {
+	if (droid.type === DROID && obj.type === DROID && isVTOL(obj))
+		return droid.canHitAir;
+	else
+		return droid.canHitGround;
+}
+
+_global.vtolArmed = function(obj, percent) {
+	if (obj.type != DROID)
+		return;
+	if (!isVTOL(obj))
+		return false;
+	for (var i = 0; i < obj.weapons.length; ++i)
+		if (obj.weapons[i].armed >= percent)
+			return true;
 	return false;
 }
 

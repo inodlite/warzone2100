@@ -22,6 +22,12 @@
  * New scripting system -- script functions
  */
 
+// **NOTE: Qt headers _must_ be before platform specific headers so we don't get conflicts.
+#include <QtScript/QScriptValue>
+#include <QtCore/QStringList>
+#include <QtCore/QJsonArray>
+#include <QtGui/QStandardItemModel>
+
 #include "lib/framework/wzapp.h"
 #include "lib/framework/wzconfig.h"
 #include "lib/framework/fixedpoint.h"
@@ -30,11 +36,6 @@
 #include "lib/netplay/netplay.h"
 #include "qtscriptfuncs.h"
 #include "lib/ivis_opengl/tex.h"
-
-#include <QtScript/QScriptValue>
-#include <QtCore/QStringList>
-#include <QtCore/QJsonArray>
-#include <QtGui/QStandardItemModel>
 
 #include "action.h"
 #include "clparse.h"
@@ -368,14 +369,19 @@ std::pair<bool, int> seenLabelCheck(QScriptEngine *engine, BASE_OBJECT *seen, BA
 	bool foundObj = false, foundGroup = false;
 	for (auto &l : labels)
 	{
-		if (l.id == seen->id && l.triggered == 0
-		    && (l.subscriber == ALL_PLAYERS || l.subscriber == viewer->player))
+		if (l.triggered != 0 || !(l.subscriber == ALL_PLAYERS || l.subscriber == viewer->player))
+		{
+			continue;
+		}
+
+		// Don't let a seen game object ID which matches a group label ID to prematurely
+		// trigger a group label.
+		if (l.type != SCRIPT_GROUP && l.id == seen->id)
 		{
 			l.triggered = viewer->id; // record who made the discovery
 			foundObj = true;
 		}
-		else if (l.type == SCRIPT_GROUP && l.id == groupId && l.triggered == 0
-		         && (l.subscriber == ALL_PLAYERS || l.subscriber == viewer->player))
+		else if (l.type == SCRIPT_GROUP && l.id == groupId)
 		{
 			l.triggered = viewer->id; // record who made the discovery
 			foundGroup = true;
@@ -398,7 +404,7 @@ bool areaLabelCheck(DROID *psDroid)
 		LABEL &l = i.value();
 		if (l.triggered == 0 && (l.subscriber == ALL_PLAYERS || l.subscriber == psDroid->player)
 		    && ((l.type == SCRIPT_AREA && l.p1.x < x && l.p1.y < y && l.p2.x > x && l.p2.y > y)
-		        || (l.type == SCRIPT_RADIUS && iHypot(l.p1 - psDroid->pos.xy) < l.p2.x)))
+		        || (l.type == SCRIPT_RADIUS && iHypot(l.p1 - psDroid->pos.xy()) < l.p2.x)))
 		{
 			// We're inside an untriggered area
 			activated = true;
@@ -1681,7 +1687,8 @@ static QScriptValue js_componentAvailable(QScriptContext *context, QScriptEngine
 	QString id = (context->argumentCount() == 1) ? context->argument(0).toString() : context->argument(1).toString();
 	COMPONENT_STATS *psComp = getCompStatsFromName(WzString::fromUtf8(id.toUtf8().constData()));
 	SCRIPT_ASSERT(context, psComp, "No such component: %s", id.toUtf8().constData());
-	return QScriptValue(apCompLists[player][psComp->compType][psComp->index] == AVAILABLE);
+	int status = apCompLists[player][psComp->compType][psComp->index];
+	return QScriptValue(status == AVAILABLE || status == REDUNDANT);
 }
 
 //-- ## addFeature(name, x, y)

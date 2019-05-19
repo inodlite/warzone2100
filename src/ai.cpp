@@ -340,7 +340,7 @@ static SDWORD targetAttackWeight(BASE_OBJECT *psTarget, BASE_OBJECT *psAttacker,
 	//See if attacker is using an EMP weapon
 	bEmpWeap = (attackerWeapon->weaponSubClass == WSC_EMP);
 
-	int dist = iHypot((psAttacker->pos - psTarget->pos).xy);
+	int dist = iHypot((psAttacker->pos - psTarget->pos).xy());
 	bool tooClose = (unsigned)dist <= attackerWeapon->upgrade[psAttacker->player].minRange;
 	if (tooClose)
 	{
@@ -690,16 +690,18 @@ int aiBestNearestTarget(DROID *psDroid, BASE_OBJECT **ppsObj, int weapon_slot, i
 	if (bestTarget)
 	{
 		ASSERT(!bestTarget->died, "AI gave us a target that is already dead.");
-		targetStructure = visGetBlockingWall((BASE_OBJECT *)psDroid, bestTarget);
+		targetStructure = visGetBlockingWall(psDroid, bestTarget);
 
-		/* See if target is blocked by a wall; only affects direct weapons */
+		// See if target is blocked by a wall; only affects direct weapons
+		// Ignore friendly walls here
 		if (proj_Direct(asWeaponStats + psDroid->asWeaps[weapon_slot].nStat)
-		    && targetStructure)
+			&& targetStructure
+			&& !aiCheckAlliances(psDroid->player, targetStructure->player))
 		{
 			//are we any good against walls?
-			if (asStructStrengthModifier[weaponEffect][targetStructure->pStructureType->strength] >= 100)		//can attack atleast with default strength
+			if (asStructStrengthModifier[weaponEffect][targetStructure->pStructureType->strength] >= 100) //can attack atleast with default strength
 			{
-				bestTarget = (BASE_OBJECT *)targetStructure;			//attack wall
+				bestTarget = (BASE_OBJECT *)targetStructure; //attack wall
 			}
 		}
 
@@ -811,6 +813,11 @@ bool aiChooseTarget(BASE_OBJECT *psObj, BASE_OBJECT **ppsTarget, int weapon_slot
 	if (targetOrigin)
 	{
 		*targetOrigin = ORIGIN_UNKNOWN;
+	}
+
+	if (psObj->type == OBJ_DROID && secondaryGetState((DROID *)psObj, DSO_HALTTYPE) == DSS_HALT_HOLD)
+	{
+		return false;	// Not sure why we check this here...
 	}
 
 	ASSERT_OR_RETURN(false, (unsigned)weapon_slot < psObj->numWeaps, "Invalid weapon selected");
@@ -1169,7 +1176,8 @@ void aiUpdateDroid(DROID *psDroid)
 		{
 			if (aiChooseSensorTarget(psDroid, &psTarget))
 			{
-				if (!orderState(psDroid, DORDER_HOLD))
+				if (!orderState(psDroid, DORDER_HOLD)
+					&& secondaryGetState(psDroid, DSO_HALTTYPE) == DSS_HALT_PURSUE)
 				{
 					psDroid->order = DroidOrder(DORDER_OBSERVE, psTarget);
 				}
@@ -1180,7 +1188,8 @@ void aiUpdateDroid(DROID *psDroid)
 		{
 			if (aiChooseTarget((BASE_OBJECT *)psDroid, &psTarget, 0, true, nullptr))
 			{
-				if (!orderState(psDroid, DORDER_HOLD))
+				if (!orderState(psDroid, DORDER_HOLD)
+					&& secondaryGetState(psDroid, DSO_HALTTYPE) == DSS_HALT_PURSUE)
 				{
 					psDroid->order = DroidOrder(DORDER_ATTACK, psTarget);
 				}

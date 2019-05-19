@@ -55,6 +55,7 @@ if(WZ_TARGET_ADDITIONAL_PROPERTIES)
 endif()
 
 target_link_libraries(sdl-backend PRIVATE framework)
+set_property(TARGET sdl-backend PROPERTY FOLDER "lib")
 message( STATUS "Linking to SDL2 library: ${_sdl2_library}" )
 target_link_libraries(sdl-backend PRIVATE ${_sdl2_library})
 target_include_directories(sdl-backend PRIVATE "${_sdl2_include_dir}")
@@ -70,6 +71,8 @@ if(_sdl2_main_library)
 else()
 	message( STATUS "Not linking to SDL2Main" )
 endif()
+
+target_link_libraries(sdl-backend PRIVATE Qt5::Core Qt5::Widgets)
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   if(${CMAKE_CROSSCOMPILING})

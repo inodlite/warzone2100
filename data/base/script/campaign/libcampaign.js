@@ -298,32 +298,27 @@ function camCountStructuresInArea(lab, player)
 	return ret;
 }
 
-//;; ## camChangeOnDiff(numeric value, [bool])
+//;; ## camChangeOnDiff(numeric value)
 //;;
-//;; Change a numeric value based on campaign difficulty. If the second option is defined
-//;; then the opposite effect will occur on that value.
+//;; Change a numeric value based on campaign difficulty.
 //;;
-function camChangeOnDiff(num, invert)
+function camChangeOnDiff(num)
 {
 	var modifier = 0;
-	if(!camDef(invert))
-	{
-		invert = false;
-	}
 
-	switch(difficulty)
+	switch (difficulty)
 	{
 		case EASY:
-			modifier = (invert === false) ? 1.25 : 0.67;
+			modifier = 1.25;
 			break;
 		case MEDIUM:
 			modifier = 1.00;
 			break;
 		case HARD:
-			modifier = (invert === false) ? 0.80 : 1.50;
+			modifier = 0.80;
 			break;
 		case INSANE:
-			modifier = (invert === false) ? 0.67 : 2.50;
+			modifier = 0.67;
 			break;
 		default:
 			modifier = 1.00;
@@ -453,6 +448,35 @@ var __camCalledOnce = {};
 function __camGlobalContext()
 {
 	return Function('return this')();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Time and Timer related functions.
+// Useful for setting the time values for queue(), setTimer(), or setMissionTime().
+////////////////////////////////////////////////////////////////////////////////
+
+const MILLISECONDS_IN_SECOND = 1000;
+const SECONDS_IN_MINUTE = 60;
+const MINUTES_IN_HOUR = 60;
+
+function camSecondsToMilliseconds(sec)
+{
+	return sec * MILLISECONDS_IN_SECOND;
+}
+
+function camMinutesToMilliseconds(min)
+{
+	return min * camSecondsToMilliseconds(SECONDS_IN_MINUTE);
+}
+
+function camMinutesToSeconds(min)
+{
+	return min * SECONDS_IN_MINUTE;
+}
+
+function camHoursToSeconds(hour)
+{
+	return hour * camMinutesToSeconds(MINUTES_IN_HOUR);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -646,11 +670,11 @@ function camTraceOnce()
 	                  arguments);
 }
 
-//;; ## isCheating()
+//;; ## camIsCheating()
 //;;
 //;; Check if the player is in cheat mode.
 //;;
-function isCheating()
+function camIsCheating()
 {
 	return __camCheatMode;
 }
@@ -1314,7 +1338,7 @@ function __camDispatchTransporterSafe(player, position, list, data)
 {
 	if (!profile("__camDispatchTransporterUnsafe"))
 	{
-		queue("__camDispatchTransporterSafe", 1000);
+		queue("__camDispatchTransporterSafe", camSecondsToMilliseconds(1));
 	}
 }
 
@@ -2127,7 +2151,7 @@ function __camTacticsTickForGroup(group)
 		{
 			if (!camDef(gi.data.interval))
 			{
-				gi.data.interval = 60000;
+				gi.data.interval = camSecondsToMilliseconds(60);
 			}
 			if (!camDef(gi.lastmove) || !camDef(gi.lastspot))
 			{
@@ -2878,7 +2902,7 @@ function camSetStandardWinLossConditions(kind, nextLevel, data)
 			__camDefeatOnTimeout = true;
 			__camVictoryData = data;
 			setReinforcementTime(__camVictoryData.reinforcements);
-			queue("__camSetOffworldLimits", 100);
+			queue("__camSetOffworldLimits", camSecondsToMilliseconds(0.1));
 			useSafetyTransport(false);
 			break;
 		case CAM_VICTORY_TIMEOUT:
@@ -2979,27 +3003,32 @@ function __camGameWon()
 //in campaign at the moment.
 function __camPlayerDead()
 {
-	if (countStruct("A0LightFactory") > 0)
+	var dead = true;
+	var haveFactories = countStruct("A0LightFactory") > 0;
+	if (haveFactories)
 	{
-		return false;
+		dead = false;
 	}
+	//NOTE: Includes the construct droids in mission.apsDroidLists[selectedPlayer] and in a transporter.
 	if (countDroid(DROID_CONSTRUCT) > 0)
 	{
-		return false;
+		dead = false;
 	}
-	var transporter = enumDroid(CAM_HUMAN_PLAYER, DROID_SUPERTRANSPORTER);
-	for (var j = 0, c = transporter.length; j < c; ++j)
+	if (__camWinLossCallback === "__camVictoryTimeout")
 	{
-		var droids = enumCargo(transporter[j]);
-		for (var i = 0, l = droids.length; i < l; ++i)
-		{
-			if (droids[i].droidType === DROID_CONSTRUCT)
+		//Because countDroid() also counts trucks not on the map, we must also
+		//make the mission fail if no units are alive on map while having no factories.
+		var droidCount = 0;
+		enumDroid(CAM_HUMAN_PLAYER).forEach(function(obj) {
+			droidCount += 1;
+			if (obj.droidType === DROID_TRANSPORTER)
 			{
-				return false;
+				droidCount += enumCargo(obj).length;
 			}
-		}
+		});
+		dead = droidCount <= 0 && !haveFactories;
 	}
-	return true;
+	return dead;
 }
 
 function __camTriggerLastAttack()
@@ -3216,6 +3245,9 @@ function camSetupTransporter(x, y, x1, y1)
 	setTransporterExit(x1, y1, CAM_HUMAN_PLAYER);
 }
 
+//privates
+var __camNumTransporterExits;
+
 ////////////////////////////////////////////////////////////////////////////////
 // VTOL management.
 // These functions create the hit and run vtols for the given player.
@@ -3265,7 +3297,7 @@ function __checkVtolSpawnObject()
 		}
 		else
 		{
-			queue("__checkVtolSpawnObject", 5000);
+			queue("__checkVtolSpawnObject", camSecondsToMilliseconds(5));
 		}
 	}
 }
@@ -3380,7 +3412,7 @@ function __camRetreatVtols()
 		}
 	}
 
-	queue("__camRetreatVtols", 800);
+	queue("__camRetreatVtols", camSecondsToMilliseconds(0.8));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3575,7 +3607,7 @@ function camHackIntoPlayer(player, to)
 					playSound(snd);
 				}
 
-				queue("camNexusLaugh", 1500);
+				queue("camNexusLaugh", camSecondsToMilliseconds(1.5));
 			}
 		}
 	}
@@ -3764,7 +3796,7 @@ function __camEnqueueVideos()
 	if (what.indexOf(SOUND_IDENTIFER) !== -1)
 	{
 		playSound(what);
-		queue("__camEnqueueVideos", 3200); //more than enough for most sounds.
+		queue("__camEnqueueVideos", camSecondsToMilliseconds(3.2)); //more than enough for most sounds.
 	}
 	else
 	{
@@ -3852,7 +3884,6 @@ function __camTick()
 }
 
 var __camLastHitTime = 0;
-const __CAM_EVENT_ATTACKED_INTENSITY = 5000;
 
 function cam_eventPickup(feature, droid)
 {
@@ -3980,14 +4011,15 @@ function cam_eventStartLevel()
 	__camVideoSequences = [];
 	__camSaveLoading = false;
 	__camNeverGroupDroids = [];
+	__camNumTransporterExits = 0;
 	camSetPropulsionTypeLimit(); //disable the propulsion changer by default
 	__camAiPowerReset(); //grant power to the AI
-	setTimer("__checkEnemyFactoryProductionTick", 800);
-	setTimer("__camTick", 1000); // campaign pollers
-	setTimer("__camTruckTick", 40100); // some slower campaign pollers
-	setTimer("__camAiPowerReset", 180000); //reset AI power every so often
-	queue("__camTacticsTick", 100); // would re-queue itself
-	queue("__camGrantSpecialResearch", 6000);
+	setTimer("__checkEnemyFactoryProductionTick", camSecondsToMilliseconds(0.8));
+	setTimer("__camTick", camSecondsToMilliseconds(1)); // campaign pollers
+	setTimer("__camTruckTick", camSecondsToMilliseconds(40) + camSecondsToMilliseconds(0.1)); // some slower campaign pollers
+	setTimer("__camAiPowerReset", camMinutesToMilliseconds(3)); //reset AI power every so often
+	queue("__camTacticsTick", camSecondsToMilliseconds(0.1)); // would re-queue itself
+	queue("__camGrantSpecialResearch", camSecondsToMilliseconds(6));
 }
 
 function cam_eventDroidBuilt(droid, structure)
@@ -4033,6 +4065,23 @@ function cam_eventGroupSeen(viewer, group)
 function cam_eventTransporterExit(transport)
 {
 	camTrace("Transporter for player", transport.player + " has exited");
+
+	if (transport.player === CAM_HUMAN_PLAYER)
+	{
+		__camNumTransporterExits += 1;
+
+		//Audio cue to let the player know they can bring in reinforcements. This
+		//assumes the player can bring in reinforcements immediately after the first
+		//transporter leaves the map. Mission scripts can handle special situations.
+		if (__camNumTransporterExits === 1 &&
+			((__camWinLossCallback === "__camVictoryOffworld" &&
+			__camVictoryData.reinforcements > -1) ||
+			__camWinLossCallback === "__camVictoryStandard"))
+		{
+			const REINFORCEMENTS_AVAILABLE_SOUND = "pcv440.ogg";
+			playSound(REINFORCEMENTS_AVAILABLE_SOUND);
+		}
+	}
 
 	if (transport.player !== CAM_HUMAN_PLAYER ||
 		(__camWinLossCallback === "__camVictoryStandard" &&
@@ -4191,7 +4240,7 @@ function cam_eventObjectTransfer(obj, from)
 		{
 			playSound(snd);
 		}
-		queue("camNexusLaugh", 1500);
+		queue("camNexusLaugh", camSecondsToMilliseconds(1.5));
 	}
 }
 

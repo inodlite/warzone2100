@@ -24,9 +24,8 @@
  */
 
 #include <physfs.h>
-#include <time.h>
+#include <ctime>
 
-#include <QtCore/QTime>
 #include "lib/framework/frame.h"
 #include "lib/framework/input.h"
 #include "lib/framework/wzconfig.h"
@@ -303,8 +302,16 @@ bool addChallenges()
 		seconds = scores.value("seconds", -1).toInt();
 		if (seconds > 0)
 		{
-			QTime format = QTime(0, 0, 0).addSecs(seconds);
-			highscore = WzString::fromUtf8(format.toString(Qt::TextDate).toUtf8().constData()) + " by " + name + " (" + WzString(victory ? "Victory" : "Survived") + ")";
+			char psTimeText[sizeof("HH:MM:SS")] = { 0 };
+			time_t secs = seconds;
+			struct tm tmp;
+#if defined(WZ_OS_WIN)
+			gmtime_s(&tmp, &secs);
+#else
+			gmtime_r(&secs, &tmp);
+#endif
+			strftime(psTimeText, sizeof(psTimeText), "%H:%M:%S", &tmp);
+			highscore = WzString::fromUtf8(psTimeText) + " by " + name + " (" + WzString(victory ? "Victory" : "Survived") + ")";
 		}
 		scores.endGroup();
 		ssprintf(sPath, "%s/%s", sSearchPath, *i);
@@ -316,7 +323,7 @@ bool addChallenges()
 		ASSERT(challenge.contains("map"), "Invalid challenge file %s - no map", sPath);
 		map = challenge.value("map", "BAD MAP").toWzString();
 		difficulty = challenge.value("difficulty", "BAD DIFFICULTY").toWzString();
-		description = map + ", " + difficulty + ", " + highscore + ". " + challenge.value("description", "").toWzString();
+		description = map + ", " + difficulty + ", " + highscore + ".\n" + challenge.value("description", "").toWzString();
 
 		button = (W_BUTTON *)widgGetFromID(psRequestScreen, CHALLENGE_ENTRY_START + slotCount);
 

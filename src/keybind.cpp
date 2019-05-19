@@ -396,7 +396,7 @@ void kf_CloneSelected(int limit)
 			// create a new droid army
 			for (int i = 0; i < limit; i++)
 			{
-				Vector2i pos = psDroid->pos.xy + iSinCosR(40503 * i, iSqrt(50 * 50 * i));  // 40503 = 65536/φ
+				Vector2i pos = psDroid->pos.xy() + iSinCosR(40503 * i, iSqrt(50 * 50 * i));  // 40503 = 65536/φ
 				DROID *psNewDroid = buildDroid(sTemplate, pos.x, pos.y, psDroid->player, false, nullptr);
 				if (psNewDroid)
 				{
@@ -476,7 +476,7 @@ void kf_Unselectable()
 ///* Prints out the date and time of the build of the game */
 void	kf_BuildInfo()
 {
-	CONPRINTF("Built at %s on %s", __TIME__, __DATE__);
+	CONPRINTF("Built: %s %s", getCompileDate(), __TIME__);
 }
 
 // --------------------------------------------------------------------------
@@ -651,7 +651,7 @@ void	kf_FrameRate()
 		                          NETgetStatistic(NetStatisticPackets, false));
 	}
 	gameStats = !gameStats;
-	CONPRINTF("Built at %s on %s", __TIME__, __DATE__);
+	CONPRINTF("Built: %s %s", getCompileDate(), __TIME__);
 }
 
 // --------------------------------------------------------------------------
@@ -2263,6 +2263,18 @@ void	kf_SetDroidOrderStop()
 			orderDroid(psDroid, DORDER_STOP, ModeQueue);
 		}
 	}
+}
+
+// --------------------------------------------------------------------------
+void	kf_SetDroidMoveGuard()
+{
+	kfsf_SetSelectedDroidsState(DSO_HALTTYPE, DSS_HALT_GUARD);
+}
+
+// --------------------------------------------------------------------------
+void	kf_SetDroidMovePursue()
+{
+	kfsf_SetSelectedDroidsState(DSO_HALTTYPE, DSS_HALT_PURSUE);	// ASK?
 }
 
 // --------------------------------------------------------------------------
